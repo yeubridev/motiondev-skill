@@ -62,7 +62,7 @@ function emit(opts, out) {
   const kind = opts.kind ?? (opts.status === 'start' || (object && runLike.has(object)) ? 'run' : object ? 'object' : 'scene')
   const e = makeEvent({ kind, scene, object, name, status: opts.status ?? (kind === 'run' ? 'done' : undefined), detail: opts.detail, file: opts.file, weight: opts.minor ? 'minor' : undefined, source: 'agent', session: opts.session }, Date.now())
   append(e)
-  out.log(`motiondev ${glyph(object ?? scene)} ${scene} · ${gist(e)}`)
+  out.log(`motiondev ${glyph(scene)} ${scene} · ${gist(e)}`)
   return 0
 }
 

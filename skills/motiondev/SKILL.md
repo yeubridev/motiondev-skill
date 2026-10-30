@@ -17,15 +17,15 @@ Once, at the start, one line each, then carry on without waiting:
 
 ## 2. Narrate each unit of work
 
-Before a unit of work whose file paths would not say what it is, run from this skill's base directory:
+Before a unit of work whose file paths would not say what it is, run the emit script by its absolute path (this skill's base directory plus `scripts/emit.mjs`, so no `cd` is needed):
 
 ```bash
-node scripts/emit.mjs <scene> <object> <name> [--detail "<what it holds>"]
+node <skill base directory>/scripts/emit.mjs <scene> <object> <name> [--detail "<what it holds>"]
 ```
 
 After a unit that ran something, close it: `--status done` or `--status fail`, with `--detail "12 passed"` when there is a count.
 
-One emit per unit of work, in the user's vocabulary (`users table`, `GET /users`, `checkout page`). The hooks already report every file and command, so an emit per file is noise. Emit when:
+One emit per thing the user would name (`users table`, `GET /users`, `checkout page`): two endpoints in one file are two emits, three files for one component are one. The hooks already report every file and command, so an emit per file is noise. Emit when:
 
 - you start a part of the plan: `think task "add the users table"`
 - the thing has a name its file does not carry: `database table users --detail "email, password_hash"`
