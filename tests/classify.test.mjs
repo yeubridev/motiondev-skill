@@ -200,6 +200,34 @@ for (const [command, want] of COMMANDS) {
   })
 }
 
+test("the agent's own narration reaches the canvas as the event it names", () => {
+  const e = classify(post('Bash', { command: 'node /home/u/.claude/skills/motiondev/scripts/emit.mjs database table users --detail "id, email"' }, { stdout: 'motiondev · database · table users', stderr: '' }))
+  assert.deepEqual(pick(e, ['kind', 'scene', 'object', 'name', 'detail', 'source', 'weight']), { kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'id, email', source: 'agent', weight: 'major' })
+  assert.equal(e.narrated, true)
+  const cli = classify(post('Bash', { command: 'node "$(cat ~/.motiondev/plugin-root)/bin/motiondev.mjs" emit api endpoint GET /users' }, {}))
+  assert.deepEqual(pick(cli), { scene: 'api', object: 'endpoint', name: 'GET /users' })
+  const run = classify(post('Bash', { command: 'node scripts/emit.mjs tests run npm test --status start' }, {}))
+  assert.deepEqual(pick(run, ['kind', 'status', 'name']), { kind: 'run', status: 'start', name: 'npm test' })
+  assert.equal(classify(pre('Bash', { command: 'node scripts/emit.mjs database table users' })), null, 'nothing before it ran')
+  assert.equal(classify(post('Bash', { command: 'node scripts/emit.mjs kitchen sink' }, { stdout: '', stderr: 'unknown scene: kitchen', exit_code: 1 })), null, 'a refused emit is nothing')
+})
+
+test("motiondev's own commands are not part of the build", () => {
+  for (const command of ['node bin/motiondev.mjs snapshot', 'npx -y github:yeubridev/motiondev-skill snapshot', 'node /x/skills/motiondev/scripts/ensure.mjs', 'motiondev watch', 'node "$(cat ~/.motiondev/plugin-root)/bin/motiondev.mjs" status']) {
+    assert.equal(classify(post('Bash', { command }, {})), null, command)
+    assert.equal(classify(pre('Bash', { command })), null, command)
+  }
+})
+
+test('a denied or failed commit, push or pull request is a failure, not a built object', () => {
+  const denied = classify(post('Bash', { command: 'git push origin main' }, { isError: true }))
+  assert.deepEqual(pick(denied, ['kind', 'status']), { kind: 'run', status: 'fail' })
+  const failed = classify(post('Bash', { command: 'git commit -m "feat: x"' }, { stdout: '', stderr: 'nothing to commit', exit_code: 1 }))
+  assert.deepEqual(pick(failed, ['kind', 'status']), { kind: 'run', status: 'fail' })
+  const titled = classify(post('Bash', { command: 'git commit -m "Error: handle timeouts"' }, { stdout: '[main 1a2b3c] Error: handle timeouts', stderr: '' }))
+  assert.deepEqual(pick(titled, ['kind', 'status']), { kind: 'object', status: 'done' }, 'a title that reads like an error is not a failure')
+})
+
 test('runs start at PreToolUse and only runs do', () => {
   const start = classify(pre('Bash', { command: 'npm test' }))
   assert.deepEqual(pick(start, ['kind', 'status']), { kind: 'run', status: 'start' })

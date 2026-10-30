@@ -23,8 +23,9 @@ export type Canvas = {
   running: boolean
   turns: number
   changedAt: number
+  seq: number
 }
-export type EventFields = Partial<Omit<Event, 'ts'>> & { scene?: string }
+export type EventFields = Partial<Omit<Event, 'ts'>> & { scene?: string; narrated?: boolean }
 export const SCENES: readonly string[]
 export const KINDS: readonly string[]
 export function makeEvent(fields: EventFields, ts?: number): Event

@@ -54,3 +54,21 @@ test('a file over the size cap is rotated once', () => {
   assert.ok(existsSync(join(dir, 'events.1.jsonl')), 'old file kept as events.1.jsonl')
   assert.equal(lines(dir).length, 1)
 })
+
+test('a narration is not written twice: emit.mjs already wrote it', () => {
+  const dir = home()
+  run({ hook_event_name: 'PostToolUse', cwd: '/repo', tool_name: 'Bash', tool_input: { command: 'node scripts/emit.mjs database table users' }, tool_response: { stdout: 'motiondev · database', stderr: '' } }, dir)
+  assert.equal(existsSync(join(dir, 'events.jsonl')), false)
+})
+
+test('a failed tool call (PostToolUseFailure) closes the run as a failure', () => {
+  const dir = home()
+  run({ hook_event_name: 'PostToolUseFailure', cwd: '/repo', tool_name: 'Bash', tool_input: { command: 'npm test' }, tool_use_id: 't1', error: 'Exit code 1\n2 failed, 10 passed' }, dir)
+  const [e] = lines(dir)
+  assert.deepEqual([e.kind, e.scene, e.status, e.detail], ['run', 'tests', 'fail', '10 passed, 2 failed'])
+})
+
+test('hooks.json listens to failed tool calls too', () => {
+  const hooks = JSON.parse(readFileSync(new URL('../hooks/hooks.json', import.meta.url), 'utf8')).hooks
+  assert.ok(hooks.PostToolUseFailure?.[0]?.hooks?.[0]?.command.includes('motiondev-hook.mjs'))
+})

@@ -15,10 +15,10 @@ Run, with this skill's base directory:
 node <skill base directory>/scripts/ensure.mjs
 ```
 
-It checks `claude plugin list`, installs or enables the plugin when needed, and prints the exact next step. Relay that step to the person in one line, word for word, then carry on with their task without waiting:
+It checks `claude plugin list`, installs or enables the plugin when needed, and prints the next step. Relay that step to the person in one line, then carry on with their task without waiting:
 
 - **"Ready: type /motiondev"**: the plugin was already there. Tell them to type `/motiondev` to open the window.
-- **"Done. Now type /reload-plugins, then /motiondev"**: it was just installed. Tell them to type `/reload-plugins` and then `/motiondev`. The window then follows every tool call by itself.
+- **"Done. Now type /reload-plugins, then /motiondev"**: it was just installed. Tell them to type `/reload-plugins` and then `/motiondev`. Until they reload, the hooks are not running yet: emit every unit of work (step 2), not only the ones a path hides. The window replays those emits when it opens, then follows every tool call by itself.
 - **Exit 2 (could not install)**: give them the two `/plugin` prompts it printed, and until they install, show the canvas yourself: at each milestone run `npx -y github:yeubridev/motiondev-skill snapshot` and paste its output in a fenced code block **inside your reply**. A tool result is folded in the chat and nobody sees it; your reply is always visible.
 
 The person types slash commands; you cannot type them for them. Never print the canvas with Bash and call it shown.
@@ -31,7 +31,7 @@ The hooks see every file you write and every command you run, so the window foll
 node <skill base directory>/scripts/emit.mjs <scene> <object> <name> [--detail "<what it holds>"] [--status start|done|fail]
 ```
 
-One emit per thing the person would name (`users table`, `GET /users`, `checkout page`): two endpoints in one file are two emits, three files for one component are one. Typical moments:
+One emit per thing the person would name (`users table`, `GET /users`, `checkout page`): two endpoints in one file are two emits, three files for one component are one. The detail is what the thing holds: the columns of a table, the fields an endpoint returns, the props of a component, the counts of a test run. Typical moments:
 
 - starting a part of the plan: `think task "add the users table"`
 - a name the path hides: `database table users --detail "id, email, password_hash"`
@@ -43,4 +43,4 @@ Scenes and objects are in [references/taxonomy.md](references/taxonomy.md). An u
 
 Last emit of the task: `think task "<what was done>" --status done`. The window then shows the shelf of everything built.
 
-Done when the person has the window open (or, without the plugin, has seen a snapshot in your reply) and every unit of work had one emit named the way they would name it.
+Done when you have told the person how to open the window (or, without the plugin, shown a snapshot in your reply) and every unit of work had one emit named the way they would name it.

@@ -39,6 +39,26 @@ test("the skill's scenes and objects match the library's", async () => {
   assert.deepEqual(mod.OBJECTS, OBJECTS)
 })
 
+test('the classifier reads a narration exactly as emit.mjs writes it', async () => {
+  const { eventFrom } = await import(join(SKILL, 'scripts/emit.mjs') + '?parity')
+  const { classify } = await import('../lib/classify.mjs')
+  const cases = [
+    ['database', 'table', 'users', '--detail', 'id, email'],
+    ['api', 'endpoint', 'GET', '/users'],
+    ['tests', 'run', 'npm', 'test', '--status', 'start'],
+    ['think', 'task', 'add the users table', '--status', 'done'],
+    ['agents', 'agent', 'review the diff', '--status', 'fail', '--detail', '2 failed'],
+    ['frontend', 'checkout page'],
+    ['shell', 'command', 'mkdir src', '--minor'],
+  ]
+  const quote = a => (/[\s"]/.test(a) ? `"${a.replace(/"/g, '\\"')}"` : a)
+  for (const argv of cases) {
+    const want = eventFrom(argv, 0)
+    const got = classify({ event: 'PostToolUse', tool: 'Bash', input: { command: `node scripts/emit.mjs ${argv.map(quote).join(' ')}` }, response: {} })
+    for (const key of ['kind', 'scene', 'object', 'name', 'status', 'detail', 'weight', 'source']) assert.equal(got?.[key], want[key], `${argv.join(' ')}: ${key}`)
+  }
+})
+
 // A stand-in for the claude CLI: answers `plugin list --json` from $FAKE_LIST, records every call, fails installs on $FAKE_FAIL.
 const fakeClaude = (list, { fail = false } = {}) => {
   const bin = tmp('motiondev-fake-claude-')

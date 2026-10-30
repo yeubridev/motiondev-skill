@@ -8,12 +8,12 @@ Live pictograms of what a coding agent is building. Read `docs/superpowers/specs
 - `hooks/`: `motiondev-hook.mjs` is the Claude Code command hook (stdin JSON in, one JSONL line out); `band/register.tsx` is the Claude Code mod that draws above the prompt.
 - `bin/motiondev.mjs`: the CLI (`watch`, `tail`, `emit`, `demo`, `status`, `clear`).
 - `skills/motiondev/`: the skill the agent reads, and `scripts/emit.mjs` it runs.
-- `tests/`: `node --test`. The band's own tests run with `claude plugin test .`.
+- `tests/`: `npm test` (bare `node --test`). The band's own tests run with `claude plugin test .`.
 
 ## Commands
 
 ```bash
-npm test                      # node --test tests/
+npm test                      # node --test
 claude plugin validate .      # manifest + hooks + mod
 claude plugin test .          # band tests
 node bin/motiondev.mjs demo   # see it

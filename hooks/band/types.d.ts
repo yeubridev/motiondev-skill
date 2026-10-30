@@ -25,6 +25,7 @@ export type Canvas = {
   running: boolean
   turns: number
   changedAt: number
+  seq: number
 }
 
 declare module 'claude-code' {

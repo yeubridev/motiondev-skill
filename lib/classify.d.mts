@@ -21,3 +21,4 @@ export function classifyPath(file: string, text?: string): Rule | null
 export function classifyCommand(command: string): CommandRule | null
 export function routeFromFile(file: string): string | null
 export function relative(file: string, cwd?: string): string
+export function narrate(argv: string[]): EventFields | null

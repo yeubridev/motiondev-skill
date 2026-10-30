@@ -12,17 +12,19 @@ try {
     const payload = JSON.parse(raw.replace(/^﻿/, '') || 'null')
     if (payload && typeof payload === 'object') {
       if (payload.hook_event_name === 'SessionStart') writePluginRoot(process.env.CLAUDE_PLUGIN_ROOT)
+      const failed = payload.hook_event_name === 'PostToolUseFailure'
       const fields = classify({
-        event: payload.hook_event_name,
+        event: failed ? 'PostToolUse' : payload.hook_event_name,
         tool: payload.tool_name,
         input: payload.tool_input,
-        response: payload.tool_response,
+        response: failed ? { isError: true, stderr: String(payload.error ?? ''), interrupted: payload.is_interrupt === true } : payload.tool_response,
         prompt: payload.prompt,
         cwd: payload.cwd,
         session_id: payload.session_id,
         source: payload.source,
       })
-      if (fields) append(makeEvent({ ...fields, session: payload.session_id, source: 'hook' }, Date.now()))
+      // A narration was written by emit.mjs itself; the hook would only write it twice.
+      if (fields && !fields.narrated) append(makeEvent({ ...fields, session: payload.session_id, source: 'hook' }, Date.now()))
     }
   }
 } catch { /* a hook never fails the agent */ }

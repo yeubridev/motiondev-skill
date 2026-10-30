@@ -71,6 +71,14 @@ test('a finished turn keeps a failed run red', () => {
   assert.equal(s.current.status, 'fail')
 })
 
+test('seq keeps counting past the ticker, so animation never freezes', () => {
+  let s = initialState()
+  assert.equal(s.seq, 0)
+  for (let i = 0; i < 30; i++) s = reduce(s, makeEvent({ kind: 'scene', scene: 'shell', object: 'command', name: `c${i}` }, i))
+  assert.equal(s.seq, 30)
+  assert.equal(s.ticker.length, 12)
+})
+
 test('the ticker keeps the last twelve events', () => {
   let s = initialState()
   for (let i = 0; i < 20; i++) s = reduce(s, makeEvent({ kind: 'scene', scene: 'shell', object: 'command', name: `cmd ${i}` }, i))
