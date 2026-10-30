@@ -4,7 +4,7 @@
 
 Three places to look, one event stream:
 
-- **In the Claude Code chat**, as a band above the prompt (terminal or desktop app).
+- **In the Claude Code chat**, as a permanent window (a docked pane) with vector drawings in the desktop app and box-drawing art in the terminal, plus a one-line band above the prompt.
 - **In any terminal**, as an animated canvas (`motiondev watch`), for a second tmux pane or a spare window.
 - **Under the Mac notch** (phase 2, [design ready](docs/mac-app.md)).
 
@@ -43,7 +43,17 @@ Two separate prompts in Claude Code:
 /plugin install motiondev@motiondev
 ```
 
-Start a new session. The band appears above the prompt as soon as the agent touches something: `More` opens the pictogram, `Hide` hides it for the session. The band needs Claude Code 2.1.290 or later in the terminal or the desktop app; the hooks and the terminal watcher work everywhere.
+Start a new session and type:
+
+```
+/motiondev
+```
+
+The motiondev window opens in the chat: the scene drawn as a vector pictogram (desktop app, editor, mobile) or as box-drawing art (terminal), what is being made with its name and detail, the shelf of everything built, and the last events. It stays open and follows every tool call. `ctrl+x tab` focuses it, `/motiondev close` closes it, `/motiondev status` prints the same as text. On a wide window (144 columns or more) it also opens by itself at session start; narrower, Claude Code waits for your `/motiondev`, and a toast says so.
+
+The band above the prompt shows the same in one line: `Window` opens the window, `More` unfolds the pictogram, `Hide` hides the band for the session (`/motiondev band on` brings it back).
+
+The window and the band need Claude Code 2.1.290 or later in the terminal or the desktop app. The hooks and the terminal watcher work everywhere, including VS Code and `claude -p`.
 
 ### Skill only (any agent that reads skills)
 
@@ -96,9 +106,16 @@ It prints something like `▤ database · table "users" · 4 built`.
 tmux split-window -h -l 60 'npx github:yeubridev/motiondev-skill watch'
 ```
 
+## Troubleshooting
+
+- **Nothing shows in the chat.** Type `/motiondev`. A pane opened without your asking is drawn only on a wide window; your command places it at any width. If the command does not exist, the plugin is not enabled in this session: `/plugin` lists it, and a session started before the install does not have it.
+- **You asked the agent to "show" the canvas and got a folded tool result.** That is Bash output, which the chat collapses. The skill tells the agent to open the window or to paste `motiondev snapshot` in its own reply instead; make sure the skill is the one from this plugin (`/motiondev:motiondev`).
+- **The terminal watcher sees no events in the desktop app.** The hooks run `node`; a Node installed through nvm or Volta is not on the PATH a GUI app inherits. `node --version` in the app's built-in terminal tells; a symlink in `/usr/local/bin` fixes it. The window in the chat does not depend on Node.
+- **Everything is gray.** `NO_COLOR` is set, or the terminal has no 256-color support; the art still reads.
+
 ## Ask the agent to narrate
 
-The hooks see every file and command, so the pictograms follow the agent with no effort from it. For richer captions ("add the users table", "review the diff"), invoke the skill: say "motiondev" or "show me what you're building" and the agent emits one event per unit of work with `node scripts/emit.mjs <scene> <object> <name>`. The scenes and objects are in [skills/motiondev/references/taxonomy.md](skills/motiondev/references/taxonomy.md).
+The hooks see every file and command, so the pictograms follow the agent with no effort from it. For richer captions ("add the users table", "review the diff"), invoke the skill: say "motiondev" or "show me what you're building" and the agent emits one event per unit of work with `node scripts/emit.mjs <scene> <object> <name>`. Where the window cannot show (VS Code, a cloud session), the agent pastes `motiondev snapshot` in its reply at each milestone: a compact frame in a code block, visible without unfolding anything. The scenes and objects are in [skills/motiondev/references/taxonomy.md](skills/motiondev/references/taxonomy.md).
 
 ## What you see
 
@@ -142,7 +159,8 @@ One pure classifier turns a tool call into `{ scene, object, name }` from the fi
 | turn the hooks off | `MOTIONDEV=0` in the environment |
 | move the event file | `MOTIONDEV_HOME=/path` (folder) or `MOTIONDEV_FILE=/path/events.jsonl` |
 | size cap before rotation | `MOTIONDEV_MAX_BYTES` (default 5 MB; the previous file stays as `events.1.jsonl`) |
-| hide the band for good | plugin setting `band` (`/plugin` → motiondev → configure), or `Hide` for one session |
+| keep the window from opening by itself | plugin setting `pane` (`/plugin` → motiondev → configure); `/motiondev` still opens it |
+| hide the band for good | plugin setting `band`, or `Hide` / `/motiondev band off` for one session |
 | open the pictogram by default | plugin setting `details` |
 | colors off | `NO_COLOR=1` or `--no-color` |
 | pure ASCII | `--ascii`, or `a` in the watcher |

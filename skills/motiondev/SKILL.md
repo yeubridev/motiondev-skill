@@ -7,13 +7,12 @@ description: Use when the user wants to see what the agent is building as it hap
 
 motiondev draws what you build as you build it: a database cylinder when you touch the schema, a table card for the table you add, a server box with an arrow for an endpoint, a flask for the tests. Its hooks already see every file you write and every command you run. This skill adds the one thing hooks cannot see: the unit of work you are starting, in the user's words.
 
-## 1. Point the user at the canvas
+## 1. Make the canvas visible, never through a tool result
 
-Once, at the start, one line each, then carry on without waiting:
+A tool result is folded in the chat, so printing frames with Bash shows the person nothing. Two ways are visible, pick by what is installed:
 
-- In Claude Code (terminal or desktop app, 2.1.290 or later): the band is above the prompt while the plugin is enabled. `More` opens the pictogram, `Hide` hides it for the session.
-- In any terminal, from the plugin folder (`cat ~/.motiondev/plugin-root` prints it): `node <plugin folder>/bin/motiondev.mjs watch`. Without the plugin: `npx github:yeubridev/motiondev-skill watch`.
-- In a status line: `node <plugin folder>/bin/motiondev.mjs status` prints one line such as `▤ database · table "users" · 4 built`.
+- **The plugin is installed** (the `/motiondev` command exists, or `~/.motiondev/plugin-root` exists): the motiondev window is a pane in the chat. Tell the person once: `/motiondev` opens it (ctrl+x tab focuses it, `/motiondev close` closes it), the band above the prompt shows the same in one line, and any terminal can run `node "$(cat ~/.motiondev/plugin-root)/bin/motiondev.mjs" watch`. Then carry on; the hooks and the window follow you by themselves.
+- **The plugin is not installed**: say so in one line with the two install prompts (`/plugin marketplace add yeubridev/motiondev-skill`, then `/plugin install motiondev@motiondev`), and show the canvas yourself at each milestone: run `node <plugin folder>/bin/motiondev.mjs snapshot` and paste its output in a fenced code block inside your own reply. Your reply is always visible; a tool result is not.
 
 ## 2. Narrate each unit of work
 
@@ -39,4 +38,4 @@ Narrate only when this skill is active (the user asked to watch). Otherwise the 
 
 The last emit of a task is `think task "<what was done>" --status done`. The canvas then shows the shelf of everything built.
 
-Done when the user knows where to look and every unit of work in the plan had one emit with the name they would use for it.
+Done when the person has seen the canvas (the window, or a snapshot in your reply) and every unit of work in the plan had one emit with the name they would use for it.

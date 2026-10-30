@@ -9,13 +9,26 @@
   "homepage": "https://github.com/yeubridev/motiondev-skill",
   "repository": "https://github.com/yeubridev/motiondev-skill",
   "license": "MIT",
-  "keywords": ["visualization", "pictogram", "hooks", "band", "ascii-art", "agent"],
+  "keywords": [
+    "visualization",
+    "pictogram",
+    "hooks",
+    "band",
+    "ascii-art",
+    "agent"
+  ],
   "hooks": [
     "./hooks/hooks.json",
     "./hooks/band.json"
   ],
   "types": "./hooks/band/types.d.ts",
   "userConfig": {
+    "pane": {
+      "type": "boolean",
+      "title": "Open the window at session start",
+      "description": "Open the motiondev window (a docked pane) when a session starts. Off: /motiondev opens it on demand.",
+      "default": true
+    },
     "band": {
       "type": "boolean",
       "title": "Band above the prompt",
