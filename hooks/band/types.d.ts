@@ -30,6 +30,6 @@ export type Canvas = {
 
 declare module 'claude-code' {
   interface PluginState {
-    motiondev: { canvas: Shaped<Canvas>; isHidden: boolean; details: boolean }
+    motiondev: { canvas: Shaped<Canvas>; isHidden: boolean; isClosed: boolean; details: boolean }
   }
 }

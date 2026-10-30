@@ -27,6 +27,7 @@ const engine = (on: On, { open = () => ({ isPlaced: true }) as UiOpenResult, fil
   on('tool.call', () => ({ result }))
   on('turn.complete', () => ({ text: '' }))
   on('prompt.submit', (_, e) => ({ text: e.text }))
+  on('ui.close', () => ({ value: undefined }))
 }
 // A command's input beyond its name and args is the engine's to stamp; a test passes none.
 const command = (args: string) => ({ command: 'motiondev', args, origin: {}, presentation: {} } as never)
@@ -44,7 +45,9 @@ test('the window draws the scene, the object and the shelf on every surface', as
     expect(await ui.find({ type: 'Text', text: /built/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /schema\.sql/ })).toBeDefined()
     if (surface === 'terminal') {
-      expect(await ui.find({ type: 'Text', text: /╭─────────────╮/ })).toBeDefined()
+      // The table card sits inside the cylinder, its name and columns written on it.
+      expect(await ui.find({ type: 'Text', text: /╭──────────╮/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /│ email\s+│/ })).toBeDefined()
       expect(await ui.find({ type: 'Text', text: /id, email/ })).toBeDefined()
     } else {
       expect(await ui.find({ type: 'Svg' })).toBeDefined()
@@ -144,6 +147,23 @@ test('/motiondev opens the window, reports status, tolerates spacing and explain
   expect(opens).toBe(2)
 })
 
+// The kit raises no person's close (ui.close is the engine's to raise); /motiondev close sets the same latch.
+test('the window opens by itself with the first prompt, and stays closed once closed', async ($, on) => {
+  let opens = 0
+  engine(on, { open: () => { opens += 1; return { isPlaced: true } } })
+  await $.session.start(start())
+  expect(opens).toBe(1)
+  await $.prompt.submit({ text: 'add a users table' } as never)
+  expect(opens).toBe(2)
+  await $.command.run(command('close'))
+  await $.prompt.submit({ text: 'and an endpoint' } as never)
+  expect(opens).toBe(2)
+  await $.command.run(command(''))
+  expect(opens).toBe(3)
+  await $.prompt.submit({ text: 'and the tests' } as never)
+  expect(opens).toBe(4)
+})
+
 test('an unplaced window gets one toast pointing at /motiondev, not one per reload', async ($, on) => {
   const toasts: string[] = []
   engine(on, { open: () => ({ isPlaced: false, reason: 'too narrow' }), toasts })
@@ -160,9 +180,9 @@ test('the band unfolds the pictogram in a monospaced face on the desktop too, an
   for (const surface of ['terminal', 'desktop'] as const) {
     const band = await $.ui.mount({ ...BAND, surface })
     expect(await band.find({ type: 'Text', text: /7 passed, 1 failed/ })).toBeDefined()
-    expect(await band.find({ type: 'Text', text: /╭───╮/ })).toBeUndefined()
+    expect(await band.find({ type: 'Text', text: /┌─ ▶ run/ })).toBeUndefined()
     await band.press({ key: 'details' })
-    const art = await band.find({ type: 'Text', text: /╭───╮/ })
+    const art = await band.find({ type: 'Text', text: /┌─ ▶ run/ })
     expect(art).toBeDefined()
     expect((art as { props?: { mono?: boolean } } | undefined)?.props?.mono).toBe(true)
     await band.press({ key: 'details' })

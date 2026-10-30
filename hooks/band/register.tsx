@@ -7,7 +7,8 @@ import type { Canvas } from './types'
 import { classify } from '../../lib/classify.mjs'
 import type { Event, EventFields } from '../../lib/events.mjs'
 import { initialState, makeEvent, parseLines, reduce } from '../../lib/events.mjs'
-import { fit, glyph, label, objectCard, pictogram, sceneHex, verb } from '../../lib/pictograms.mjs'
+import { compose } from '../../lib/compose.mjs'
+import { fit, glyph, label, sceneHex, verb } from '../../lib/pictograms.mjs'
 import { gist, oneLine } from '../../lib/render.mjs'
 import { illustrate } from '../../lib/svg.mjs'
 
@@ -20,6 +21,8 @@ const REPLAY_MS = 2 * 60 * 60 * 1000
 // Change the tag when Canvas changes shape: it declines what an earlier version stored.
 const canvas = atom({ plugin: 'motiondev', key: 'canvas' } as const, initialState(), { shape: 'canvas-4' })
 const isHidden = atom({ plugin: 'motiondev', key: 'isHidden' } as const, false)
+// The person closed the window: no prompt reopens it until they ask with /motiondev.
+const isClosed = atom({ plugin: 'motiondev', key: 'isClosed' } as const, false)
 const details = atom({ plugin: 'motiondev', key: 'details' } as const, false)
 
 const SPIN = ['◐', '◓', '◑', '◒']
@@ -53,7 +56,12 @@ function summary(s: Canvas) {
   return { c, status, mark, doing, detail: c.detail ?? '', file: c.file ?? '', color: sceneHex(c.scene) }
 }
 
-const frameOf = (s: Canvas, frames: number) => (s.running || s.current.scene === 'idle' || s.current.scene === 'think' ? s.seq % frames : 0)
+// The drawing of the current action: animated while it runs (frames advance with each event), else its last frame.
+function drawing(s: Canvas, maxWidth: number) {
+  const c = s.current
+  const art = compose({ scene: c.scene, object: c.object, name: c.name, detail: c.detail, status: s.running ? '' : c.status, running: s.running }, { maxWidth })
+  return art.frames[s.running ? s.seq % art.frames.length : art.frames.length - 1] ?? []
+}
 
 const openPane = ($: EngineInterface, focus?: true) =>
   $.ui.open(focus ? { id: PANE, title: TITLE, focus, rows: 18 } : { id: PANE, title: TITLE, rows: 18 }).catch(() => ({ isPlaced: false as const, reason: 'refused' }))
@@ -86,7 +94,11 @@ export const register: Register = (on, options) => {
   on('command.run', { command: 'motiondev' }, async ($, e) => {
     const arg = e.args.trim().toLowerCase().split(/\s+/).filter(Boolean).join(' ')
     const s = (await read($, canvas)) ?? initialState()
-    if (arg === 'close') { await $.ui.close({ id: PANE }).catch(() => undefined); return { text: 'motiondev window closed. /motiondev opens it again.' } }
+    if (arg === 'close') {
+      await update($, isClosed, () => true)
+      await $.ui.close({ id: PANE }).catch(() => undefined)
+      return { text: 'motiondev window closed. /motiondev opens it again.' }
+    }
     if (arg === 'band off') { await update($, isHidden, () => true); return { text: 'motiondev band hidden for this session. /motiondev band on shows it.' } }
     if (arg === 'band on') { await update($, isHidden, () => false); return { text: 'motiondev band shown.' } }
     if (arg === 'status') {
@@ -94,16 +106,27 @@ export const register: Register = (on, options) => {
       return { text: [oneLine(s), `${s.shelf.length} built: ${s.shelf.map(o => `${glyph(o.object)} ${o.name || o.object}`).join('  ') || 'nothing yet'}`, ...rows].join('\n') }
     }
     if (arg !== '') return { text: USAGE }
+    await update($, isClosed, () => false)
     const opened = await openPane($, true)
     return { text: opened.isPlaced ? 'motiondev window open. ctrl+x tab focuses it, /motiondev close closes it.' : `motiondev window is waiting for a surface to draw it (${opened.reason}). The band above the prompt and \`motiondev watch\` in a terminal show the same.` }
   })
 
   on('prompt.submit', async ($, e, next) => {
     // A slash command is not a turn of the agent.
-    if (!e.isMeta && !e.command) await apply($, classify({ event: 'UserPromptSubmit', prompt: e.text, cwd }), await $.clock.now())
+    if (!e.isMeta && !e.command) {
+      await apply($, classify({ event: 'UserPromptSubmit', prompt: e.text, cwd }), await $.clock.now())
+      // A prompt the person entered is an asked open: the window is placed at any width, no command needed.
+      if (options.pane !== false && !(await read($, isClosed))) await openPane($)
+    }
 
     return next(e)
   }).catch(($, e, next) => next(e))
+
+  on('ui.close', { id: PANE }, async ($, e, next) => {
+    if (e.origin.kind === 'person') await update($, isClosed, () => true)
+
+    return next(e)
+  })
 
   on('tool.call', async ($, e, next) => {
     const { tool, tool_use_id, agentId, consent, requestMeta, ...input } = e as Record<string, unknown> & { tool: string }
@@ -168,18 +191,17 @@ export const register: Register = (on, options) => {
     )
 
     if (e.surface === 'terminal') {
-      const art = pictogram(c.scene)
-      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: Math.min(26, Math.max(12, columns - art.width - 6)), detail }) : []
-      const side = columns >= art.width + 30
-      const bodyHeight = side ? Math.max(art.height, captionLines + (card.length ? card.length + 1 : 0)) : art.height + captionLines + card.length
+      const art = drawing(s, Math.min(40, Math.max(24, columns - 2)))
+      const artWidth = [...(art[0] ?? '')].length
+      const side = columns >= artWidth + 26
+      const bodyHeight = side ? Math.max(art.length, captionLines) : art.length + captionLines
       // head, the drawing, the shelf, and the three gaps between them.
       const room = bodyRows - (1 + bodyHeight + shelfRows + 3)
-      const picture = <Box flexDirection="column">{(art.frames[frameOf(s, art.frames.length)] ?? []).map(line => <Text color={color} mono>{line}</Text>)}</Box>
-      const cardBox = card.length ? <Box flexDirection="column">{card.map(line => <Text color={color} mono>{line}</Text>)}</Box> : null
+      const picture = <Box flexDirection="column">{art.map(line => <Text color={color} mono>{line}</Text>)}</Box>
       return (
         <Box flexDirection="column" paddingX={1} rowGap={1}>
           {head}
-          {side ? <Box flexDirection="row" columnGap={3}>{picture}<Box flexDirection="column" rowGap={1}>{caption}{cardBox}</Box></Box> : <Box flexDirection="column">{picture}{caption}{cardBox}</Box>}
+          {side ? <Box flexDirection="row" columnGap={3}>{picture}{caption}</Box> : <Box flexDirection="column">{picture}{caption}</Box>}
           {shelf}
           {ticker(room)}
         </Box>
@@ -187,12 +209,13 @@ export const register: Register = (on, options) => {
     }
 
     const { Svg } = $.ui.resolve(e)
-    const svgWidth = Math.min(360, Math.max(240, Math.floor(columns * 4)))
     const alt = `${label(c.scene)}: ${doing}${c.name ? ' ' + c.name : ''}${detail ? ', ' + detail : ''}`
+    // No width on the element: the drawing takes its own 400 px, scaled down to the slot when the pane is narrower.
+    const action = c.status !== 'done' && c.status !== 'fail'
     return (
       <Box flexDirection="column" paddingX={1} rowGap={1}>
         {head}
-        <Svg source={illustrate({ scene: c.scene, object: c.object, name: c.name, detail, status: c.status, running: s.running }, { width: svgWidth, height: Math.round(svgWidth * 9 / 16) })} alt={alt} width={svgWidth} isInteractive />
+        <Svg source={illustrate({ scene: c.scene, object: c.object, name: c.name, detail, status: s.running ? '' : c.status, running: s.running || action }, { width: 400, height: 225 })} alt={alt} isInteractive />
         {caption}
         {shelf}
         {ticker(bodyRows - 12 - captionLines - shelfRows)}
@@ -222,8 +245,8 @@ export const register: Register = (on, options) => {
         <Text color={color} weight="semibold">{glyph(c.scene)} {label(c.scene)}</Text>
         <Text>{mark ? `${mark} ` : ''}{doing}{c.name ? ' ' : ''}{c.name ? <Text weight="semibold">{fit(c.name, 32)}</Text> : null}</Text>
         {detail ? <Text dimColor>{fit(detail, 24)}</Text> : null}
-        {s.shelf.length ? <Text dimColor>· built {s.shelf.length}</Text> : null}
-        {s.shelf.length && columns > 70 ? <Text dimColor>{fit(shelf, Math.max(12, columns - 70))}</Text> : null}
+        {s.shelf.length > 0 ? <Text dimColor>· built {s.shelf.length}</Text> : null}
+        {s.shelf.length > 0 && columns > 70 ? <Text dimColor>{fit(shelf, Math.max(12, columns - 70))}</Text> : null}
         <Button key="window" label="Window" onPress={showWindow} />
         <Button key="details" label={open ? 'Less' : 'More'} onPress={() => update($, details, v => !v)} />
         <Button key="hide" label="Hide" onPress={() => update($, isHidden, () => true)} />
@@ -232,25 +255,18 @@ export const register: Register = (on, options) => {
 
     let mine = row
     if (open) {
-      const art = pictogram(c.scene)
-      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: 24, detail }) : []
-      const rowsRoom = Math.max(1, Math.min(art.height, e.props.maxRows - 2))
+      const art = drawing(s, Math.min(40, Math.max(24, columns - 2))).slice(0, Math.max(1, e.props.maxRows - 2))
       mine = (
         <Box flexDirection="column">
           {row}
           <Box flexDirection="row" gap={3}>
-            <Box flexDirection="column">
-              {(art.frames[frameOf(s, art.frames.length)] ?? []).slice(0, rowsRoom).map(line => <Text color={color} mono>{line}</Text>)}
-            </Box>
-            <Box flexDirection="column">
-              {file ? <Text dimColor>{fit(file, 40)}</Text> : null}
-              {card.map(line => <Text color={color} mono>{line}</Text>)}
-            </Box>
+            <Box flexDirection="column">{art.map(line => <Text color={color} mono>{line}</Text>)}</Box>
+            {file ? <Text dimColor>{fit(file, 40)}</Text> : null}
           </Box>
         </Box>
       )
     }
 
     return below ? <Box flexDirection="column">{mine}{below}</Box> : mine
-  })
+  }).catch(($, e, next) => next(e))
 }

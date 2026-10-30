@@ -55,7 +55,7 @@ test('a scene change reveals the pictogram over time and animation follows the t
 test('reveal can be turned off for a one-shot frame, and a done run reads in the past tense', () => {
   const s = build()
   const text = frame(s, { width: 80, height: 24, tick: 0, now: 5050, reveal: false }).join('\n')
-  assert.match(text, /╰─────╯/, 'the whole flask is there')
+  assert.match(text, /┌─ ▶ run/, 'the whole drawing is there, card included')
   let d = reduce(s, makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'done', detail: '12 passed' }, 6000))
   const done = frame(d, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
   assert.match(done, /✓ ran tests · done/)
@@ -68,7 +68,9 @@ test('the caption and the table card keep the columns after the turn ends', () =
   const text = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
   assert.match(text, /id, email, password_hash/, 'caption keeps the detail')
   assert.match(text, /db\/schema\.sql/, 'caption keeps the file')
-  assert.match(text, /│ id\s+│ email/, 'the card lists the real columns')
+  assert.match(text, /│ id\s+│/, 'the card lists the real columns')
+  assert.match(text, /│ email\s+│/)
+  assert.match(text, /│ password_hash\s+│/)
 })
 
 test('oneLine sums the canvas up for a status line', () => {

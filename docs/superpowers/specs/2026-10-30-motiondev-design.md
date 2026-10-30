@@ -23,7 +23,7 @@ The person should understand, at a glance and without reading, what the agent is
 
 - Replaying or storing transcripts. Events carry a scene, an object and a name, never file contents.
 - Being an observability product. No metrics, cost or tokens: ponytail's band does that already.
-- Pixel art. Pictograms are box-drawing characters so they render in every monospace terminal and in the Claude Code band.
+- Pixel art. Terminal pictograms are box-drawing characters so they render in every monospace terminal; remote surfaces (desktop app, editor, mobile) get vector drawings of the same scenes (`lib/svg.mjs`).
 
 ## Anti-goals
 
@@ -97,6 +97,10 @@ A pure function `classify(call) → event | null`, where `call` is `{ event, too
 `node bin/motiondev.mjs watch` tails the file and redraws at 8 fps: the current scene's pictogram (animated frame sequence while a run is in progress, a reveal when the scene changes), a caption, a shelf of everything built this session with one glyph per object, and a ticker of the last events. `--ascii` swaps box-drawing for plain ASCII. When stdout is not a TTY it behaves like `tail`.
 
 `node bin/motiondev.mjs demo` replays `demo/scenario.jsonl` so anyone can see it without an agent.
+
+### Window and band (Claude Code mod)
+
+The window is an engine pane (`$.ui.open`), opened at session start (placed there only on a wide terminal or once a client attaches) and again with each prompt the person enters, which counts as asked and is placed at any width, until the person closes it; `/motiondev` reopens it. It draws `lib/svg.mjs` on remote surfaces and `lib/compose.mjs` on the terminal: the action on the object inside its zone (the table card entering the database with its columns, the request leaving the server), chosen by a judged design panel over three SVG and two text styles.
 
 ### Band (Claude Code mod)
 

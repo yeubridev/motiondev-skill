@@ -9,23 +9,24 @@ Three places to look, one event stream:
 - **Under the Mac notch** (phase 2, [design ready](docs/mac-app.md)).
 
 ```
-◉ motiondev  shop-api                                          turn 1 · 17:59:08
+◉ motiondev  shop-api                                          turn 1 · 20:01:16
 
-      ╭───╮           quality · tests
-      │   │           ◓ running tests
-      │ ◦ │           npm test
-     ╱ ◦   ╲
-    │   ◦ ◦ │          ▶ npm test
-    │ ◦◦◦◦◦ │            test run
-     ╰─────╯
+  ╭──────────╮     ┌─ ▤ table ─────────┐   backend · database
+ ╭╯          ╰╮    │ users             │   ✓ created table · done
+ │╰──────────╯│    ├───────────────────┤   users
+ │ ┌────────┐ │ ◀──│ id                │   id, email, password_hash
+ │ │ users  │ │    │ email             │   prisma/schema.prisma
+ │ └────────┘ │    │ password_hash     │
+ ╰╮          ╭╯    └───────────────────┘
+  ╰──────────╯
 
-built  ▦ users  ▦ orders  ▤ add_users  ⇄ GET /users  ⇄ POST /users  ◇ logger
-       ◘ requireAuth  ◉ jwt  ◫ UserList  ▭ /users  ◐ globals  ✓ users API
+built  ▦ users  ⇄ GET /users  ◫ UserList
 
-17:59:07 ⇄ Edit src/routes/users.ts → endpoint GET /users (edit)
-17:59:07 ✓ Write tests/users.test.ts → test users API
-17:59:08 ▶ run npm test (started)
+20:01:14 ✧ prompt: Build a users API with auth and a React list
+20:01:16 ▦ Write prisma/schema.prisma → table users (id, email, password_hash)
 ```
+
+In the terminal the table card slides into the cylinder over three frames; in the desktop app the same scene is a vector drawing, animated while the action runs.
 
 No dependencies. Node 18+, which every machine running Claude Code already has. Nothing leaves your machine: events are one JSON line each in `~/.motiondev/events.jsonl`, with a scene, an object and a name, never file contents.
 
@@ -43,13 +44,9 @@ Two separate prompts in Claude Code:
 /plugin install motiondev@motiondev
 ```
 
-Start a new session and type:
+Start a new session and send your first message: the motiondev window opens in the chat by itself. (`/motiondev` opens it any time.)
 
-```
-/motiondev
-```
-
-The motiondev window opens in the chat: the scene drawn as a vector pictogram (desktop app, editor, mobile) or as box-drawing art (terminal), what is being made with its name and detail, the shelf of everything built, and the last events. It stays open and follows every tool call. `ctrl+x tab` focuses it, `/motiondev close` closes it, `/motiondev status` prints the same as text. On a wide window (144 columns or more) it also opens by itself at session start; narrower, Claude Code waits for your `/motiondev`, and a toast says so.
+The window draws the action as it happens, as a vector drawing in the desktop app, the editor and mobile, and as box-drawing art in the terminal: the `users` table card dropping into the database with its columns written on it, the `GET /users` request leaving the server for a client, the `<UserList/>` block landing in the browser window, the flask bubbling until the counts come back green or red, the new commit lighting up on the branch. Under the drawing: what is being made, the shelf of everything built, and the last events. It stays open and follows every tool call. `ctrl+x tab` focuses it, `/motiondev close` closes it (it then stays closed until `/motiondev`), `/motiondev status` prints the same as text.
 
 The band above the prompt shows the same in one line: `Window` opens the window, `More` unfolds the pictogram, `Hide` hides the band for the session (`/motiondev band on` brings it back).
 
@@ -109,7 +106,7 @@ tmux split-window -h -l 60 'npx github:yeubridev/motiondev-skill watch'
 ## Troubleshooting
 
 - **The agent says "it only appears once the plugin is installed".** You have the skill without the plugin, or an old copy of the skill. Update it (`npx skills update`, or `git pull` in your clone): the current skill installs the plugin itself and tells you to type `/reload-plugins` then `/motiondev`.
-- **Nothing shows in the chat.** Type `/motiondev`. A pane opened without your asking is drawn only on a wide window; your command places it at any width. If the command does not exist, the plugin is not enabled in this session: `/plugin` lists it, and a session started before the install does not have it.
+- **Nothing shows in the chat.** Send a message or type `/motiondev`: both place the window at any width (Claude Code draws a window opened on its own, at session start, only on a wide terminal). If you closed it, it stays closed until `/motiondev`. If the command does not exist, the plugin is not enabled in this session: `/plugin` lists it, and `/reload-plugins` loads a plugin installed after the session started.
 - **You asked the agent to "show" the canvas and got a folded tool result.** That is Bash output, which the chat collapses. The skill tells the agent to open the window or to paste `motiondev snapshot` in its own reply instead; make sure the skill is the one from this plugin (`/motiondev:motiondev`).
 - **The terminal watcher sees no events in the desktop app.** The hooks run `node`; a Node installed through nvm or Volta is not on the PATH a GUI app inherits. `node --version` in the app's built-in terminal tells; a symlink in `/usr/local/bin` fixes it. The window in the chat does not depend on Node.
 - **Everything is gray.** `NO_COLOR` is set, or the terminal has no 256-color support; the art still reads.
