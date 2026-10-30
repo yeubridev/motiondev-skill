@@ -84,8 +84,24 @@ test('demo plays the bundled scenario and --once renders its final frame', () =>
   assert.match(r.stdout, /built/)
 })
 
+test('snapshot prints a compact frame for a chat code block', () => {
+  const dir = home()
+  cli(['emit', 'database', 'table', 'users', '--detail', 'id, email'], dir)
+  const r = cli(['snapshot'], dir)
+  assert.equal(r.status, 0, r.stderr)
+  const rows = r.stdout.replace(/\n$/, '').split('\n')
+  assert.ok(rows.length >= 10 && rows.length <= 16, `${rows.length} rows`)
+  for (const row of rows) assert.ok([...row].length <= 64, `too wide: ${row}`)
+  assert.match(r.stdout, /database/)
+  assert.match(r.stdout, /users/)
+  assert.doesNotMatch(r.stdout, /q quits/, 'no watcher footer in a snapshot')
+  assert.doesNotMatch(r.stdout, /\x1b\[/, 'never colored')
+  const a = cli(['snapshot', '--ascii'], dir)
+  assert.ok(/^[\x20-\x7e\n]*$/.test(a.stdout), 'ascii only')
+})
+
 test('help lists the commands', () => {
   const r = cli(['--help'], home())
   assert.equal(r.status, 0)
-  for (const cmd of ['watch', 'tail', 'emit', 'demo', 'status', 'clear']) assert.match(r.stdout, new RegExp(`\\b${cmd}\\b`))
+  for (const cmd of ['watch', 'tail', 'emit', 'demo', 'status', 'clear', 'snapshot']) assert.match(r.stdout, new RegExp(`\\b${cmd}\\b`))
 })

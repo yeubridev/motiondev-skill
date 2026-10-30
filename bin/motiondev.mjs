@@ -13,6 +13,7 @@ const HELP = `motiondev: see what your coding agent is building, live.
   motiondev tail      one line per event, follows the file (--no-follow to stop)
   motiondev emit      <scene> [object] [name...] [--status start|done|fail] [--detail text] [--minor]
   motiondev demo      play the bundled scenario (--speed 2, --loop)
+  motiondev snapshot  a compact frame to paste in a chat code block (--width 60 --height 14)
   motiondev status    one line for a status bar
   motiondev clear     empty the event file
   motiondev path      print the event file
@@ -169,6 +170,12 @@ export async function main(argv, out = { log: s => console.log(s), err: s => con
   switch (cmd) {
     case 'emit': return emit(opts, out)
     case 'status': out.log(oneLine(replayed(readAll(file)), { ascii: Boolean(opts.ascii) })); return 0
+    case 'snapshot': {
+      const lines = frame(replayed(readAll(file)), { width: num(opts.width, 60), height: num(opts.height, 14), ascii: Boolean(opts.ascii), color: false, utc: Boolean(opts.utc), reveal: false, footer: false })
+      while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+      out.log(lines.map(l => l.replace(/\s+$/, '')).join('\n'))
+      return 0
+    }
     case 'clear': clear(file); return 0
     case 'path': out.log(file); return 0
     case 'tail': return tail(opts, out)

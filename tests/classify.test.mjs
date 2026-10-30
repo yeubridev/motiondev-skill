@@ -73,6 +73,19 @@ for (const [file, content, want] of FILES) {
   })
 }
 
+test('a created table carries its columns as detail', () => {
+  const sql = classify(write('/repo/db/schema.sql', 'CREATE TABLE users (\n  id serial PRIMARY KEY,\n  email text NOT NULL,\n  password_hash text\n);'))
+  assert.equal(sql.detail, 'id, email, password_hash')
+  const prisma = classify(write('/repo/prisma/schema.prisma', 'model Order {\n  id    Int @id @default(autoincrement())\n  total Int\n  user  User @relation(fields: [userId], references: [id])\n  userId Int\n}'))
+  assert.equal(prisma.detail, 'id, total, user, userId')
+  const drizzle = classify(write('/repo/src/db/schema.ts', "export const users = pgTable('users', {\n  id: serial('id').primaryKey(),\n  email: text('email').notNull(),\n})"))
+  assert.equal(drizzle.detail, 'id, email')
+  const django = classify(write('/repo/app/models.py', 'class Invoice(models.Model):\n    number = models.CharField(max_length=20)\n    total = models.DecimalField()\n\n    def __str__(self): return self.number'))
+  assert.equal(django.detail, 'number, total')
+  const many = classify(write('/repo/db/schema.sql', 'CREATE TABLE wide (a int, b int, c int, d int, e int, f int, g int, h int);'))
+  assert.equal(many.detail, 'a, b, c, d, e, f, …')
+})
+
 test('Edit sniffs the new text and keeps the file rule', () => {
   const e = classify(edit('/repo/prisma/schema.prisma', 'model Payment {\n id Int @id\n}'))
   assert.deepEqual(pick(e), { scene: 'database', object: 'table', name: 'Payment' })
