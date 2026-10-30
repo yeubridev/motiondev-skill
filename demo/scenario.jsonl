@@ -1,0 +1,32 @@
+# motiondev demo: an agent builds a small users API. `delay` is the pause (ms) before the line.
+{"delay":0,"kind":"session","scene":"idle","status":"start","detail":"shop-api","session":"demo"}
+{"delay":900,"kind":"turn","scene":"think","object":"task","status":"start","name":"Build a users API with auth and a React list"}
+{"delay":1100,"kind":"scene","scene":"explore","object":"read","name":"package.json","tool":"Read","weight":"minor"}
+{"delay":700,"kind":"scene","scene":"explore","object":"read","name":"src/db.ts","tool":"Read","weight":"minor"}
+{"delay":700,"kind":"scene","scene":"explore","object":"search","name":"router.","tool":"Grep","weight":"minor"}
+{"delay":1300,"kind":"scene","scene":"think","object":"task","name":"plan ready","tool":"ExitPlanMode"}
+{"delay":1600,"kind":"object","scene":"database","object":"table","name":"users","file":"prisma/schema.prisma","tool":"Write","status":"done"}
+{"delay":1400,"kind":"object","scene":"database","object":"table","name":"orders","file":"prisma/schema.prisma","tool":"Edit","status":"done","detail":"edit"}
+{"delay":1100,"kind":"run","scene":"database","object":"migration","name":"add_users","status":"start","tool":"Bash"}
+{"delay":1800,"kind":"object","scene":"database","object":"migration","name":"add_users","status":"done","tool":"Bash"}
+{"delay":1500,"kind":"object","scene":"api","object":"endpoint","name":"GET /users","file":"src/routes/users.ts","tool":"Write","status":"done"}
+{"delay":1300,"kind":"object","scene":"api","object":"endpoint","name":"POST /users","file":"src/routes/users.ts","tool":"Edit","status":"done","detail":"edit"}
+{"delay":1100,"kind":"object","scene":"api","object":"middleware","name":"logger","file":"src/middleware/logger.ts","tool":"Write","status":"done"}
+{"delay":1500,"kind":"object","scene":"auth","object":"guard","name":"requireAuth","file":"src/middleware/auth.ts","tool":"Write","status":"done"}
+{"delay":1300,"kind":"object","scene":"auth","object":"token","name":"jwt","file":"src/lib/jwt.ts","tool":"Write","status":"done"}
+{"delay":1500,"kind":"object","scene":"frontend","object":"component","name":"UserList","file":"src/components/UserList.tsx","tool":"Write","status":"done"}
+{"delay":1300,"kind":"object","scene":"frontend","object":"page","name":"/users","file":"app/users/page.tsx","tool":"Write","status":"done"}
+{"delay":900,"kind":"object","scene":"frontend","object":"style","name":"globals","file":"src/styles/globals.css","tool":"Edit","status":"done","detail":"edit"}
+{"delay":1300,"kind":"object","scene":"tests","object":"test","name":"users API","file":"tests/users.test.ts","tool":"Write","status":"done"}
+{"delay":1000,"kind":"run","scene":"tests","object":"run","name":"npm test","status":"start","tool":"Bash"}
+{"delay":2600,"kind":"run","scene":"tests","object":"run","name":"npm test","status":"fail","detail":"11 passed, 1 failed","tool":"Bash"}
+{"delay":1200,"kind":"scene","scene":"explore","object":"read","name":"src/routes/users.ts","tool":"Read","weight":"minor"}
+{"delay":1400,"kind":"object","scene":"api","object":"endpoint","name":"GET /users","file":"src/routes/users.ts","tool":"Edit","status":"done","detail":"edit"}
+{"delay":1000,"kind":"run","scene":"tests","object":"run","name":"npm test","status":"start","tool":"Bash"}
+{"delay":2400,"kind":"run","scene":"tests","object":"run","name":"npm test","status":"done","detail":"12 passed","tool":"Bash"}
+{"delay":1300,"kind":"object","scene":"docs","object":"page","name":"README","file":"README.md","tool":"Edit","status":"done","detail":"edit"}
+{"delay":1300,"kind":"object","scene":"git","object":"commit","name":"feat: users API with auth","status":"done","tool":"Bash"}
+{"delay":1100,"kind":"object","scene":"git","object":"push","name":"feat/users","status":"done","tool":"Bash"}
+{"delay":1500,"kind":"object","scene":"git","object":"pr","name":"Add users API","status":"done","tool":"Bash"}
+{"delay":1200,"kind":"turn","scene":"idle","status":"done","weight":"minor"}
+{"delay":4000,"kind":"note","scene":"idle","name":"waiting","weight":"minor"}

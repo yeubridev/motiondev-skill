@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "motiondev",
+  "description": "See what your coding agent is building, live, as pictograms.",
+  "owner": {
+    "name": "yeubridev",
+    "url": "https://github.com/yeubridev"
+  },
+  "plugins": [
+    {
+      "name": "motiondev",
+      "description": "Live pictograms of what the agent builds: a database forms, a table pops in, an endpoint grows an arrow, tests bubble.",
+      "source": "./",
+      "category": "productivity"
+    }
+  ]
+}

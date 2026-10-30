@@ -1,0 +1,32 @@
+{
+  "name": "motiondev",
+  "version": "0.1.0",
+  "description": "See what your coding agent is building, live: pictograms that form as it works, in the Claude Code chat, in any terminal, and (soon) under the Mac notch.",
+  "author": {
+    "name": "yeubridev",
+    "url": "https://github.com/yeubridev"
+  },
+  "homepage": "https://github.com/yeubridev/motiondev-skill",
+  "repository": "https://github.com/yeubridev/motiondev-skill",
+  "license": "MIT",
+  "keywords": ["visualization", "pictogram", "hooks", "band", "ascii-art", "agent"],
+  "hooks": [
+    "./hooks/hooks.json",
+    "./hooks/band.json"
+  ],
+  "types": "./hooks/band/types.d.ts",
+  "userConfig": {
+    "band": {
+      "type": "boolean",
+      "title": "Band above the prompt",
+      "description": "Draw the current scene and what was built above the prompt. Off: the hooks still write ~/.motiondev/events.jsonl for the terminal watcher.",
+      "default": true
+    },
+    "details": {
+      "type": "boolean",
+      "title": "Start with the pictogram open",
+      "description": "Show the full pictogram in the band from the start. Off: one compact line, with a button to open it.",
+      "default": false
+    }
+  }
+}

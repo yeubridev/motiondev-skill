@@ -1,0 +1,17 @@
+{
+  "name": "motiondev",
+  "version": "0.1.0",
+  "description": "See what your coding agent is building, live: pictograms in the Claude Code chat, in any terminal, and (soon) under the Mac notch.",
+  "type": "module",
+  "license": "MIT",
+  "repository": "github:yeubridev/motiondev-skill",
+  "bin": { "motiondev": "bin/motiondev.mjs" },
+  "files": ["bin", "lib", "hooks", "skills", "demo", ".claude-plugin", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node --test",
+    "validate": "claude plugin validate .",
+    "demo": "node bin/motiondev.mjs demo"
+  },
+  "keywords": ["claude-code", "skill", "plugin", "agent", "visualization", "pictogram", "ascii-art", "hooks"]
+}
