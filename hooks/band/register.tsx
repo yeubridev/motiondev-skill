@@ -15,7 +15,7 @@ const PANE = 'motiondev'
 const TITLE = 'motiondev'
 
 // Change the tag when Canvas changes shape: it declines what an earlier version stored.
-const canvas = atom({ plugin: 'motiondev', key: 'canvas' } as const, initialState(), { shape: 'canvas-2' })
+const canvas = atom({ plugin: 'motiondev', key: 'canvas' } as const, initialState(), { shape: 'canvas-3' })
 const isHidden = atom({ plugin: 'motiondev', key: 'isHidden' } as const, false)
 const details = atom({ plugin: 'motiondev', key: 'details' } as const, false)
 
@@ -38,10 +38,7 @@ function summary(s: Canvas) {
   const status = s.running ? 'start' : c.status
   const mark = s.running ? SPIN[s.ticker.length % 4] : c.status === 'fail' ? '✗' : c.status === 'done' && c.object ? '✓' : ''
   const doing = c.object || c.scene !== 'idle' ? verb(c.object, c.scene, status) : 'waiting for the agent'
-  const last = s.ticker[s.ticker.length - 1]
-  const detail = last && last.weight === 'major' ? last.detail ?? '' : ''
-  const file = last && last.weight === 'major' ? last.file ?? '' : ''
-  return { c, status, mark, doing, detail, file, color: sceneHex(c.scene) }
+  return { c, status, mark, doing, detail: c.detail ?? '', file: c.file ?? '', color: sceneHex(c.scene) }
 }
 
 const openPane = ($: EngineInterface, focus?: true) =>
@@ -146,7 +143,7 @@ export const register: Register = (on, options) => {
     if (e.surface === 'terminal') {
       const art = pictogram(c.scene)
       const frameIndex = s.running || c.scene === 'idle' || c.scene === 'think' ? s.ticker.length % art.frames.length : 0
-      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: Math.min(26, Math.max(12, columns - art.width - 6)) }) : []
+      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: Math.min(26, Math.max(12, columns - art.width - 6)), detail }) : []
       const side = columns >= art.width + 30
       const picture = <Box flexDirection="column">{(art.frames[frameIndex] ?? []).map(line => <Text color={color}>{line}</Text>)}</Box>
       const cardBox = card.length ? <Box flexDirection="column">{card.map(line => <Text color={color}>{line}</Text>)}</Box> : null
@@ -202,9 +199,8 @@ export const register: Register = (on, options) => {
     if (open) {
       const art = pictogram(c.scene)
       const frameIndex = s.running || c.scene === 'idle' || c.scene === 'think' ? s.ticker.length % art.frames.length : 0
-      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: 24 }) : []
+      const card = c.object && c.object !== 'read' ? objectCard(c.object, c.name, { maxWidth: 24, detail }) : []
       const rowsRoom = Math.max(1, Math.min(art.height, e.props.maxRows - 2))
-      const last = s.ticker[s.ticker.length - 1]
       mine = (
         <Box flexDirection="column">
           {row}
@@ -213,7 +209,7 @@ export const register: Register = (on, options) => {
               {(art.frames[frameIndex] ?? []).slice(0, rowsRoom).map(line => <Text color={color}>{line}</Text>)}
             </Box>
             <Box flexDirection="column">
-              {last && last.file ? <Text dimColor>{fit(last.file, 40)}</Text> : null}
+              {c.file ? <Text dimColor>{fit(c.file, 40)}</Text> : null}
               {card.map(line => <Text color={color}>{line}</Text>)}
             </Box>
           </Box>

@@ -61,7 +61,7 @@ The window and the band need Claude Code 2.1.290 or later in the terminal or the
 npx skills add yeubridev/motiondev-skill
 ```
 
-This installs the `motiondev` skill: the agent narrates each unit of work with `scripts/emit.mjs`. Without the plugin there are no hooks, so only what the agent narrates shows up.
+The skill alone draws nothing: the window and the hooks live in the plugin. So the skill's first step installs the plugin for you (`claude plugin marketplace add` + `claude plugin install`, one Bash call you approve) and then asks you to type `/reload-plugins` and `/motiondev`. Where the plugin cannot be installed, the agent pastes a `motiondev snapshot` in its replies instead.
 
 ### From a clone
 
@@ -108,6 +108,7 @@ tmux split-window -h -l 60 'npx github:yeubridev/motiondev-skill watch'
 
 ## Troubleshooting
 
+- **The agent says "it only appears once the plugin is installed".** You have the skill without the plugin, or an old copy of the skill. Update it (`npx skills update`, or `git pull` in your clone): the current skill installs the plugin itself and tells you to type `/reload-plugins` then `/motiondev`.
 - **Nothing shows in the chat.** Type `/motiondev`. A pane opened without your asking is drawn only on a wide window; your command places it at any width. If the command does not exist, the plugin is not enabled in this session: `/plugin` lists it, and a session started before the install does not have it.
 - **You asked the agent to "show" the canvas and got a folded tool result.** That is Bash output, which the chat collapses. The skill tells the agent to open the window or to paste `motiondev snapshot` in its own reply instead; make sure the skill is the one from this plugin (`/motiondev:motiondev`).
 - **The terminal watcher sees no events in the desktop app.** The hooks run `node`; a Node installed through nvm or Volta is not on the PATH a GUI app inherits. `node --version` in the app's built-in terminal tells; a symlink in `/usr/local/bin` fixes it. The window in the chat does not depend on Node.

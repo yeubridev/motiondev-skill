@@ -8,4 +8,4 @@ export function glyph(key: string, options?: { ascii?: boolean }): string
 export function toAscii(s: string): string
 export function fit(s: string, width: number): string
 export function pictogram(scene: string, options?: { ascii?: boolean }): Pictogram
-export function objectCard(object: string, name: string, options?: { ascii?: boolean; maxWidth?: number }): string[]
+export function objectCard(object: string, name: string, options?: { ascii?: boolean; maxWidth?: number; detail?: string }): string[]

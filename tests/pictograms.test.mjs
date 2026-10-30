@@ -67,6 +67,16 @@ test('an object card draws the object with its name in a few rows of equal width
   }
 })
 
+test('a table card shows its columns when it knows them', () => {
+  const card = objectCard('table', 'users', { maxWidth: 24, detail: 'id, email, password_hash' })
+  const text = card.join('\n')
+  assert.match(text, /id/)
+  assert.match(text, /email/)
+  assert.match(text, /password/)
+  const w = [...card[0]].length
+  for (const line of card) assert.equal([...line].length, w, line)
+})
+
 test('a long name is cut to fit the card', () => {
   const card = objectCard('table', 'a_very_long_table_name_that_goes_on_and_on', { maxWidth: 20 })
   for (const line of card) assert.ok(width(line) <= 20, line)

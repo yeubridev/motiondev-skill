@@ -62,6 +62,15 @@ test('reveal can be turned off for a one-shot frame, and a done run reads in the
   assert.match(done, /12 passed/)
 })
 
+test('the caption and the table card keep the columns after the turn ends', () => {
+  let s = reduce(initialState(), makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'id, email, password_hash', file: 'db/schema.sql', status: 'done' }, 1000))
+  s = reduce(s, makeEvent({ kind: 'turn', scene: 'idle', status: 'done', weight: 'minor' }, 2000))
+  const text = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  assert.match(text, /id, email, password_hash/, 'caption keeps the detail')
+  assert.match(text, /db\/schema\.sql/, 'caption keeps the file')
+  assert.match(text, /│ id\s+│ email/, 'the card lists the real columns')
+})
+
 test('oneLine sums the canvas up for a status line', () => {
   const s = build()
   const line = oneLine(s)

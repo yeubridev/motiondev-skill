@@ -12,8 +12,8 @@ export type Event = {
   detail?: string
   session?: string
 }
-export type Built = { key: string; scene: string; object: string; name: string; ts: number }
-export type Current = { scene: string; object: string; name: string; status: string; ts: number }
+export type Built = { key: string; scene: string; object: string; name: string; detail: string; ts: number }
+export type Current = { scene: string; object: string; name: string; status: string; detail: string; file: string; ts: number }
 export type Canvas = {
   project: string
   session: string
