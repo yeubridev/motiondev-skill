@@ -192,7 +192,20 @@ const COMMANDS = [
   ['curl -X POST localhost:3000/orders -d "{}"', { scene: 'api', object: 'request', name: 'POST /orders' }],
   ['npm run dev', { scene: 'api', object: 'server', name: 'npm run dev' }],
   ['uvicorn app.main:app --reload', { scene: 'api', object: 'server', name: 'uvicorn app.main:app --reload' }],
+  // A file written from the shell is that file, not a read: the agent builds with it.
+  ["cat > prisma/schema.prisma <<'EOF'\nmodel users {\n  id String @id\n  email String\n}\nEOF", { scene: 'database', object: 'table', name: 'users' }],
+  ["mkdir -p src/components && cat <<'EOF' > src/components/MemberList.jsx\nexport default function MemberList() {}\nEOF", { scene: 'frontend', object: 'component', name: 'MemberList' }],
+  ["echo 'body {}' | tee src/styles/globals.css", { scene: 'frontend', object: 'style', name: 'globals' }],
+  ['echo "a > b" > src/styles/app.css', { scene: 'frontend', object: 'style', name: 'app' }],
 ]
+
+test('Bash: output sent to a log or /dev/null is not a file the agent builds', () => {
+  assert.deepEqual(pick(classify(post('Bash', { command: 'npm test > out.log' }, { stdout: '', stderr: '' })), ['scene', 'object']), { scene: 'tests', object: 'run' })
+  assert.equal(classify(post('Bash', { command: 'cat README.md > /dev/null' }, {}))?.scene, 'explore')
+  assert.equal(classify(post('Bash', { command: 'echo done >&2' }, {}))?.scene, 'shell')
+  assert.equal(classify(pre('Bash', { command: "cat > a.ts <<'EOF'\nx\nEOF" })), null, 'a write is one event, once it ran')
+  assert.equal(classify(post('Bash', { command: "cat > src/app.css <<'EOF'\nx\nEOF" }, {}))?.detail, undefined, 'a whole file written is no edit')
+})
 
 for (const [command, want] of COMMANDS) {
   test(`Bash: ${command} -> ${want.scene}/${want.object} "${want.name}"`, () => {
