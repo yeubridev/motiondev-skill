@@ -1,0 +1,5 @@
+{
+  "name": "motiondev-v2-local",
+  "owner": { "name": "BrieucDev" },
+  "plugins": [{ "name": "motiondev-v2", "source": "./" }]
+}

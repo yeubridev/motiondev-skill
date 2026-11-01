@@ -1,0 +1,10 @@
+{
+  "name": "motiondev-v2",
+  "version": "0.4.1",
+  "description": "See what your coding agent builds, explained at your level: beginner, intermediate, advanced or dev.",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "BrieucDev"
+  },
+  "license": "MIT"
+}
