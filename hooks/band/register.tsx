@@ -6,26 +6,38 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Canvas } from './types'
 import { classify } from '../../lib/classify.mjs'
 import type { Event, EventFields } from '../../lib/events.mjs'
-import { initialState, makeEvent, parseLines, reduce } from '../../lib/events.mjs'
+import { SCENES, initialState, makeEvent, parseLines, reduce } from '../../lib/events.mjs'
 import { compose } from '../../lib/compose.mjs'
+import { blueprint as blueprintText } from '../../lib/blueprint.mjs'
+import type { Segment } from '../../lib/blueprint.mjs'
 import { fit, glyph, label, sceneHex, verb } from '../../lib/pictograms.mjs'
 import { gist, oneLine } from '../../lib/render.mjs'
-import { illustrate } from '../../lib/svg.mjs'
+import { blueprint as blueprintSvg, illustrate } from '../../lib/svg.mjs'
 
 const PANE = 'motiondev'
 const TITLE = 'motiondev'
-const USAGE = 'usage: /motiondev [close|status|band on|band off]'
+const USAGE = 'usage: /motiondev [close|status|view action|view blueprint|band on|band off]'
 // How far back a fresh window looks in the event file: narration made before the plugin loaded.
 const REPLAY_MS = 2 * 60 * 60 * 1000
 
 // Change the tag when Canvas changes shape: it declines what an earlier version stored.
-const canvas = atom({ plugin: 'motiondev', key: 'canvas' } as const, initialState(), { shape: 'canvas-4' })
+const canvas = atom({ plugin: 'motiondev', key: 'canvas' } as const, initialState(), { shape: 'canvas-5' })
 const isHidden = atom({ plugin: 'motiondev', key: 'isHidden' } as const, false)
 // The person closed the window: no prompt reopens it until they ask with /motiondev.
 const isClosed = atom({ plugin: 'motiondev', key: 'isClosed' } as const, false)
 const details = atom({ plugin: 'motiondev', key: 'details' } as const, false)
+// What the window draws: the blueprint of the whole build, or the pictogram of the current action.
+const viewMode = atom({ plugin: 'motiondev', key: 'view' } as const, 'blueprint')
 
 const SPIN = ['◐', '◓', '◑', '◒']
+const FAIL = '#ff6b6b'
+
+// A blueprint segment's tone as Text props: a scene name is its color, `fail` is red, `dim` and `bold` as they say.
+function toneProps(seg: Segment) {
+  const flags = seg.tone.split(' ')
+  const scene = flags.find(f => SCENES.includes(f))
+  return { color: flags.includes('fail') ? FAIL : scene ? sceneHex(scene) : undefined, dimColor: flags.includes('dim'), weight: flags.includes('bold') ? ('semibold' as const) : undefined }
+}
 
 async function apply($: EngineInterface, fields: EventFields | null, now: number) {
   if (!fields) return
@@ -98,6 +110,11 @@ export const register: Register = (on, options) => {
       await update($, isClosed, () => true)
       await $.ui.close({ id: PANE }).catch(() => undefined)
       return { text: 'motiondev window closed. /motiondev opens it again.' }
+    }
+    if (arg === 'view action' || arg === 'view blueprint') {
+      const mode = arg.slice(5)
+      await update($, viewMode, () => mode)
+      return { text: mode === 'action' ? 'motiondev window shows the current action. /motiondev view blueprint shows the whole build.' : 'motiondev window shows the blueprint of the whole build. /motiondev view action shows the current action.' }
     }
     if (arg === 'band off') { await update($, isHidden, () => true); return { text: 'motiondev band hidden for this session. /motiondev band on shows it.' } }
     if (arg === 'band on') { await update($, isHidden, () => false); return { text: 'motiondev band shown.' } }
@@ -172,23 +189,55 @@ export const register: Register = (on, options) => {
         {file ? <Text dimColor>{fit(file, width)}</Text> : null}
       </Box>
     )
-    const chips = s.shelf.slice(-24).map(o => `${glyph(o.object)} ${fit(o.name || o.object, 20)}`)
+    // A failed thing stays on the shelf as a red ghost until the retry lands.
+    const chips = s.shelf.slice(-24).map(o => `${o.status === 'fail' ? '✗' : glyph(o.object)} ${fit(o.name || o.object, 20)}`)
     const shelfRows = chips.length ? Math.ceil((7 + chips.reduce((n, chip) => n + [...chip].length + 2, 0)) / Math.max(20, columns)) : 1
     const shelf = chips.length ? (
       <Box flexDirection="row" flexWrap="wrap" columnGap={2}>
         <Text dimColor>built</Text>
-        {s.shelf.slice(-24).map((o, i) => <Text color={sceneHex(o.scene)}>{chips[i]}</Text>)}
+        {s.shelf.slice(-24).map((o, i) => <Text color={o.status === 'fail' ? FAIL : sceneHex(o.scene)}>{chips[i]}</Text>)}
       </Box>
     ) : <Text dimColor>nothing built yet</Text>
     const ticker = (rows: number) => (
       <Box flexDirection="column">
         {s.ticker.slice(-Math.max(2, rows)).map(ev => (
-          <Text dimColor={ev.weight === 'minor'} color={ev.status === 'fail' ? '#ff6b6b' : undefined} mono size="caption">
+          <Text dimColor={ev.weight === 'minor'} color={ev.status === 'fail' ? FAIL : undefined} mono size="caption">
             {clock(ev.ts)} {glyph(ev.object ?? ev.scene)} {fit(gist(ev), Math.max(20, columns - 12))}
           </Text>
         ))}
       </Box>
     )
+
+    if ((await read($, viewMode)) !== 'action') {
+      // The blueprint: the whole build in its zones with the caret where the agent is, a two-line caption, the ticker.
+      const brief = (
+        <Box flexDirection="column">
+          <Text><Text color={color} weight="semibold">{mark ? `${mark} ` : ''}{doing}</Text>{c.name ? ` ${fit(c.name, width)}` : ''}</Text>
+          {detail || file ? <Text dimColor>{fit([detail, file].filter(Boolean).join(' · '), Math.max(12, columns - 2))}</Text> : null}
+        </Box>
+      )
+      const briefRows = detail || file ? 2 : 1
+      if (e.surface === 'terminal') {
+        const map = blueprintText(s, { width: Math.max(20, columns - 2), height: Math.max(3, bodyRows - briefRows - 6), reveal: false })
+        return (
+          <Box flexDirection="column" paddingX={1} rowGap={1}>
+            {head}
+            <Box flexDirection="column">{map.lines.map(line => <Text mono>{line.map(seg => <Text {...toneProps(seg)}>{seg.text}</Text>)}</Text>)}</Box>
+            {brief}
+            {ticker(bodyRows - (1 + map.lines.length + briefRows + 3))}
+          </Box>
+        )
+      }
+      const { Svg } = $.ui.resolve(e)
+      return (
+        <Box flexDirection="column" paddingX={1} rowGap={1}>
+          {head}
+          <Svg source={blueprintSvg(s, { width: 400, height: 225 })} alt={`blueprint: ${s.shelf.length} built, ${doing}${c.name ? ' ' + c.name : ''}`} isInteractive />
+          {brief}
+          {ticker(bodyRows - 12 - briefRows)}
+        </Box>
+      )
+    }
 
     if (e.surface === 'terminal') {
       const art = drawing(s, Math.min(40, Math.max(24, columns - 2)))
@@ -232,7 +281,7 @@ export const register: Register = (on, options) => {
     const open = await read($, details)
     const { c, mark, doing, detail, file, color } = summary(s)
     const columns = e.surface === 'terminal' ? e.props.bodyColumns : 100
-    const shelf = s.shelf.slice(-8).map(o => `${glyph(o.object)} ${fit(o.name || o.object, 18)}`).join('  ')
+    const shelf = s.shelf.slice(-8).map(o => `${o.status === 'fail' ? '✗' : glyph(o.object)} ${fit(o.name || o.object, 18)}`).join('  ')
     const showWindow = async () => {
       // A press is an asked open, placed at any width; the band holds the keys, so no focus.
       const r = await openPane($)

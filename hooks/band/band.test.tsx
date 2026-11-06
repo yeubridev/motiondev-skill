@@ -15,7 +15,7 @@ const PANE = {
 } as const
 
 // Nothing sits beneath the plugin in a test: these hooks stand for the engine.
-const engine = (on: On, { open = () => ({ isPlaced: true }) as UiOpenResult, file = '', session = 'sess-1', toasts = [] as string[], result = { stdout: 'Tests: 1 failed, 7 passed, 8 total', stderr: '', interrupted: false } }: { open?: () => UiOpenResult; file?: string; session?: string; toasts?: string[]; result?: Record<string, unknown> } = {}) => {
+const engine = (on: On, { open = () => ({ isPlaced: true }) as UiOpenResult, file = '', session = 'sess-1', toasts = [] as string[], result = { stdout: 'Tests: 1 failed, 7 passed, 8 total', stderr: '', interrupted: false }, fails = () => false }: { open?: () => UiOpenResult; file?: string; session?: string; toasts?: string[]; result?: Record<string, unknown>; fails?: () => boolean } = {}) => {
   mock.clock(on, { now: 1_700_000_000_000 })
   mock.env(on, { HOME: '/home/u' })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
@@ -24,7 +24,7 @@ const engine = (on: On, { open = () => ({ isPlaced: true }) as UiOpenResult, fil
   on('command.register', () => ({ value: { command: 'motiondev' } }))
   on('ui.open', () => ({ value: open() }))
   on('ui.toast', (_, e) => { toasts.push(e.text); return { value: undefined } })
-  on('tool.call', () => ({ result }))
+  on('tool.call', () => (fails() ? { result, isError: true } : { result }))
   on('turn.complete', () => ({ text: '' }))
   on('prompt.submit', (_, e) => ({ text: e.text }))
   on('ui.close', () => ({ value: undefined }))
@@ -33,7 +33,7 @@ const engine = (on: On, { open = () => ({ isPlaced: true }) as UiOpenResult, fil
 const command = (args: string) => ({ command: 'motiondev', args, origin: {}, presentation: {} } as never)
 const start = (surface: 'terminal' | 'desktop' | null = 'terminal') => ({ cwd: '/repo/shop', surface, isInteractive: surface !== null })
 
-test('the window draws the scene, the object and the shelf on every surface', async ($, on) => {
+test('the window draws the blueprint on every surface: the build in its zones, the caret, the ticker', async ($, on) => {
   engine(on)
   await $.session.start(start())
   await $.tool.call({ tool: 'Write', file_path: '/repo/shop/db/schema.sql', content: 'CREATE TABLE users (id serial, email text);' })
@@ -42,18 +42,63 @@ test('the window draws the scene, the object and the shelf on every surface', as
     const ui = await $.ui.mount({ ...PANE, surface })
     expect(await ui.find({ type: 'Text', text: /motiondev/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /users/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /built/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /schema\.sql/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /id, email/ })).toBeDefined()
     if (surface === 'terminal') {
-      // The table card sits inside the cylinder, its name and columns written on it.
-      expect(await ui.find({ type: 'Text', text: /╭──────────╮/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /│ email\s+│/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /id, email/ })).toBeDefined()
+      // The database box holds the table, the caret after it; no action card.
+      expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /database/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /▌/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /╭──────────╮/ })).toBeUndefined()
     } else {
-      expect(await ui.find({ type: 'Svg' })).toBeDefined()
+      const svg = await ui.find({ type: 'Svg' })
+      expect(svg).toBeDefined()
+      expect((svg as { props?: { source?: string } } | undefined)?.props?.source).toMatch(/database/)
     }
     await ui.unmount()
   }
+})
+
+test('/motiondev view action draws the action on its object instead, and view blueprint comes back', async ($, on) => {
+  engine(on)
+  await $.session.start(start())
+  await $.tool.call({ tool: 'Write', file_path: '/repo/shop/db/schema.sql', content: 'CREATE TABLE users (id serial, email text);' })
+  expect((await $.command.run(command('view action'))).text).toMatch(/current action/)
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  // The table card sits inside the cylinder, its name and columns written on it, over the shelf.
+  expect(await ui.find({ type: 'Text', text: /╭──────────╮/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /│ email\s+│/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /built/ })).toBeDefined()
+  await ui.unmount()
+  expect((await $.command.run(command('view blueprint'))).text).toMatch(/whole build/)
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /╭──────────╮/ })).toBeUndefined()
+  expect(await ui.find({ type: 'Text', text: /┌─/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a failed write is a red ghost in its zone until the retry lands', async ($, on) => {
+  let failing = true
+  engine(on, { fails: () => failing })
+  await $.session.start(start())
+  await $.tool.call({ tool: 'Write', file_path: '/repo/shop/src/components/UserList.tsx', content: 'export default function UserList() {}' })
+  // The name is its own run of text inside the box's line, painted on its own.
+  let ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const ghost = await ui.find({ type: 'Text', text: /^UserList$/ })
+  expect(ghost).toBeDefined()
+  expect((ghost as { props?: { color?: string } } | undefined)?.props?.color).toBe('#ff6b6b')
+  expect(await ui.find({ type: 'Text', text: /^✗$/ })).toBeDefined()
+  await ui.unmount()
+  failing = false
+  await $.tool.call({ tool: 'Write', file_path: '/repo/shop/src/components/UserList.tsx', content: 'export default function UserList() {}' })
+  ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  const whole = await ui.find({ type: 'Text', text: /^UserList$/ })
+  expect(whole).toBeDefined()
+  expect((whole as { props?: { color?: string } } | undefined)?.props?.color).not.toBe('#ff6b6b')
+  expect(await ui.find({ type: 'Text', text: /^✗$/ })).toBeUndefined()
+  await ui.unmount()
+  const status = await $.command.run(command('status'))
+  expect(status.text).toMatch(/1 built/)
 })
 
 test('the window opens at session start even before a surface attaches (the desktop app attaches later)', async ($, on) => {
@@ -103,8 +148,11 @@ test('the ticker fits the pane body, not the whole screen, and keeps the newest 
   engine(on, { result: { stdout: '', stderr: '' } })
   await $.session.start(start())
   for (let i = 0; i < 12; i++) await $.tool.call({ tool: 'Bash', command: `echo step-${i}` })
-  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', viewport: { columns: 120, rows: 50 }, props: { ...PANE.props, scroll: { offset: 0, bodyRows: 18 } } } as never)
+  // Ten body rows: one for the head, one for the waiting caret, one for the caption, three gaps, four events.
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal', viewport: { columns: 120, rows: 50 }, props: { ...PANE.props, scroll: { offset: 0, bodyRows: 10 } } } as never)
   expect(await ui.find({ type: 'Text', text: /step-11/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /step-8\b/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /step-7\b/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /step-0\b/ })).toBeUndefined()
   await ui.unmount()
 })
@@ -144,6 +192,7 @@ test('/motiondev opens the window, reports status, tolerates spacing and explain
   expect((await $.command.run(command('band  off'))).text).toMatch(/hidden/)
   expect((await $.command.run(command('band   on'))).text).toMatch(/shown/)
   expect((await $.command.run(command('banana'))).text).toMatch(/usage/)
+  expect((await $.command.run(command('view sideways'))).text).toMatch(/usage/)
   expect(opens).toBe(2)
 })
 
@@ -210,6 +259,6 @@ test('a canvas an earlier version stored is declined and the window starts idle'
   on('state.get', (_, e) => ({ value: e.key === 'canvas' ? { value: { current: { scene: 'nowhere' } }, version: 1 } : { value: undefined, version: 0 } }))
 
   const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
-  expect(await ui.find({ type: 'Text', text: /nothing built yet/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /waiting for the agent/ })).toBeDefined()
   await ui.unmount()
 })

@@ -9,7 +9,7 @@ import { append, readAll, clear, eventsPath, fileSource } from '../hooks/store.m
 
 const HELP = `motiondev: see what your coding agent is building, live.
 
-  motiondev watch     animated canvas of the current session (q quits, a toggles ascii, c clears)
+  motiondev watch     the blueprint of the build, live (q quits, v switches view, a toggles ascii, c clears)
   motiondev tail      one line per event, follows the file (--no-follow to stop)
   motiondev emit      <scene> [object] [name...] [--status start|done|fail] [--detail text] [--minor]
   motiondev demo      play the bundled scenario (--speed 2, --loop)
@@ -18,7 +18,8 @@ const HELP = `motiondev: see what your coding agent is building, live.
   motiondev clear     empty the event file
   motiondev path      print the event file
 
-Options: --ascii, --no-color, --fps 8, --utc, --once, --width N, --height N, --file PATH
+Views: blueprint (default: the whole build, the caret where the agent is) or action (the current action's pictogram).
+Options: --view blueprint|action, --ascii, --no-color, --fps 8, --utc, --once, --width N, --height N, --file PATH
 Scenes: ${SCENES.join(', ')}
 Events live in $MOTIONDEV_HOME/events.jsonl (default ~/.motiondev). MOTIONDEV=0 turns the hooks off.
 `
@@ -31,7 +32,7 @@ function parseArgs(argv) {
     if (a.startsWith('--')) {
       const [key, inline] = a.slice(2).split('=')
       if (key.startsWith('no-')) { opts[key.slice(3)] = false; continue }
-      const takesValue = ['detail', 'status', 'kind', 'fps', 'file', 'width', 'height', 'speed', 'session'].includes(key)
+      const takesValue = ['detail', 'status', 'kind', 'fps', 'file', 'width', 'height', 'speed', 'session', 'view'].includes(key)
       if (inline !== undefined) opts[key] = inline
       else if (takesValue && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) opts[key] = argv[++i]
       else opts[key] = true
@@ -42,11 +43,14 @@ function parseArgs(argv) {
 
 const num = (v, d) => (v === undefined ? d : Number(v) || d)
 
+const viewOf = opts => (opts.view === 'action' ? 'action' : 'blueprint')
+
 function renderOpts(opts) {
   return {
     ascii: Boolean(opts.ascii),
     color: opts.color === false || process.env.NO_COLOR ? false : Boolean(process.stdout.isTTY),
     utc: Boolean(opts.utc),
+    view: viewOf(opts),
   }
 }
 
@@ -123,12 +127,13 @@ async function watch(source, opts, out) {
   }
   let tick = 0
   let ascii = ro.ascii
+  let view = ro.view
   let last = size()
   const write = s => process.stdout.write(s)
   const draw = () => {
     const box = size()
     if (box.width !== last.width || box.height !== last.height) { write('\x1b[2J'); last = box }
-    write('\x1b[H' + frame(state, { ...box, ...ro, ascii, tick, now: Date.now() }).join('\n'))
+    write('\x1b[H' + frame(state, { ...box, ...ro, ascii, view, tick, now: Date.now() }).join('\n'))
   }
   const leave = () => { write('\x1b[?25h\x1b[?1049l'); try { process.stdin.setRawMode(false) } catch { /* not a tty */ } process.exit(0) }
   write('\x1b[?1049h\x1b[?25l\x1b[2J')
@@ -142,6 +147,7 @@ async function watch(source, opts, out) {
       const k = key.toString()
       if (k === 'q' || k === '\u0003' || k === '\u001b') leave()
       if (k === 'a') { ascii = !ascii; write('\x1b[2J') }
+      if (k === 'v') { view = view === 'action' ? 'blueprint' : 'action'; write('\x1b[2J') }
       if (k === 'c') { state = initialState(); write('\x1b[2J') }
       draw()
     })
@@ -171,7 +177,7 @@ export async function main(argv, out = { log: s => console.log(s), err: s => con
     case 'emit': return emit(opts, out)
     case 'status': out.log(oneLine(replayed(readAll(file)), { ascii: Boolean(opts.ascii) })); return 0
     case 'snapshot': {
-      const lines = frame(replayed(readAll(file)), { width: num(opts.width, 64), height: num(opts.height, 14), ascii: Boolean(opts.ascii), color: false, utc: Boolean(opts.utc), reveal: false, footer: false })
+      const lines = frame(replayed(readAll(file)), { width: num(opts.width, 64), height: num(opts.height, 14), ascii: Boolean(opts.ascii), color: false, utc: Boolean(opts.utc), reveal: false, footer: false, view: viewOf(opts) })
       while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
       out.log(lines.map(l => l.replace(/\s+$/, '')).join('\n'))
       return 0

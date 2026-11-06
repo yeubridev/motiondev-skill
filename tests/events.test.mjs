@@ -91,3 +91,49 @@ test('SCENES lists every scene the design names', () => {
     assert.ok(SCENES.includes(scene), scene)
   }
 })
+
+test('a failed object joins the shelf as a ghost and the retry replaces it in place', () => {
+  let s = reduce(initialState(), makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', status: 'done' }, 1))
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'frontend', object: 'component', name: 'UserList', status: 'fail', detail: 'permission denied' }, 2))
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'api', object: 'endpoint', name: 'GET /users', status: 'done' }, 3))
+  assert.deepEqual(s.shelf.map(o => [o.name, o.status]), [['users', 'done'], ['UserList', 'fail'], ['GET /users', 'done']])
+  assert.equal(s.current.status, 'done', 'the shelf keeps the ghost, the scene moved on')
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'frontend', object: 'component', name: 'UserList', status: 'done' }, 4))
+  assert.deepEqual(s.shelf.map(o => [o.name, o.status]), [['users', 'done'], ['UserList', 'done'], ['GET /users', 'done']], 'the fix lands where the failure was')
+  assert.equal(s.shelf[1].ts, 4, 'the retry is the newest thing drawn')
+})
+
+test('an edit keeps the columns a table was created with', () => {
+  let s = reduce(initialState(), makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'id, email', status: 'done' }, 1))
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'edit', status: 'done' }, 2))
+  assert.equal(s.shelf[0].detail, 'id, email')
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'id, email, password_hash', status: 'done' }, 3))
+  assert.equal(s.shelf[0].detail, 'id, email, password_hash', 'a richer detail replaces the old one')
+  assert.equal(s.shelf.length, 1)
+})
+
+test('runs remember the last outcome per scene and object once the agent has moved on', () => {
+  let s = reduce(initialState(), makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'start' }, 1))
+  assert.deepEqual([s.runs['tests/run'].status, s.runs['tests/run'].name], ['start', 'npm test'])
+  s = reduce(s, makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'fail', detail: '11 passed, 1 failed' }, 2))
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'api', object: 'endpoint', name: 'GET /users', status: 'done' }, 3))
+  assert.deepEqual([s.runs['tests/run'].status, s.runs['tests/run'].detail, s.runs['tests/run'].ts], ['fail', '11 passed, 1 failed', 2])
+  assert.equal(s.current.scene, 'api')
+  s = reduce(s, makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'done', detail: '12 passed' }, 4))
+  assert.equal(s.runs['tests/run'].status, 'done')
+  assert.equal(s.runs['api/endpoint'], undefined, 'objects are not runs')
+  s = reduce(s, makeEvent({ kind: 'session', status: 'start', scene: 'idle' }, 5))
+  assert.deepEqual(s.runs, {}, 'a new session starts with no runs')
+})
+
+test('the task is the prompt of the turn', () => {
+  let s = initialState()
+  assert.equal(s.task, '')
+  s = reduce(s, makeEvent({ kind: 'turn', scene: 'think', object: 'task', status: 'start', name: 'add a users table' }, 1))
+  assert.equal(s.task, 'add a users table')
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users' }, 2))
+  s = reduce(s, makeEvent({ kind: 'turn', scene: 'idle', status: 'done', weight: 'minor' }, 3))
+  assert.equal(s.task, 'add a users table', 'the task stays until the next prompt')
+  s = reduce(s, makeEvent({ kind: 'turn', scene: 'think', object: 'task', status: 'start', name: 'now the endpoint' }, 4))
+  assert.equal(s.task, 'now the endpoint')
+})

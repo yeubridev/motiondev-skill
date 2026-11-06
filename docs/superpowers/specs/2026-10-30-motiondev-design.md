@@ -66,6 +66,12 @@ One JSON object per line, append-only, in `$MOTIONDEV_HOME/events.jsonl` (defaul
 
 `kind: session, status: start` resets the canvas. Everything else accumulates: objects go on the shelf, the latest major event is the scene.
 
+The reader's state (`lib/events.mjs`, `reduce`) keeps, besides the current scene, the ticker and the shelf:
+
+- `shelf[].status`: `done` or `fail`. A failed object joins the shelf as a ghost, keyed like a success (`scene/object/name`), so the retry replaces it in place and the person sees the fix land where the failure was. A later edit never erases an informative detail (the columns of a table survive an `edit`).
+- `runs`: the last run per `scene/object` (`{ name, status, detail, ts }`), so the flask keeps its counts, the build its outcome and the deploy its state after the agent has moved on.
+- `task`: the prompt of the current turn, set by `turn start`.
+
 ### Taxonomy
 
 | scene | objects | pictogram |
@@ -94,13 +100,40 @@ A pure function `classify(call) → event | null`, where `call` is `{ event, too
 
 ### Terminal watcher
 
-`node bin/motiondev.mjs watch` tails the file and redraws at 8 fps: the current scene's pictogram (animated frame sequence while a run is in progress, a reveal when the scene changes), a caption, a shelf of everything built this session with one glyph per object, and a ticker of the last events. `--ascii` swaps box-drawing for plain ASCII. When stdout is not a TTY it behaves like `tail`.
+`node bin/motiondev.mjs watch` tails the file and redraws at 8 fps. By default it draws the blueprint (below) over a ticker of the last events; `v` switches to the action view: the current scene's pictogram (animated frame sequence while a run is in progress, a reveal when the scene changes), a caption, a shelf of everything built this session with one glyph per object, and the ticker. `--ascii` swaps box-drawing for plain ASCII. When stdout is not a TTY it behaves like `tail`.
 
 `node bin/motiondev.mjs demo` replays `demo/scenario.jsonl` so anyone can see it without an agent.
 
+### The blueprint: the whole build, with the agent as the cursor
+
+Added 2026-11-06. The action pictogram shows one thing at a time and the shelf lists names; neither shows the build. The blueprint does: a persistent drawing of everything the agent has made, growing at the pace of the hooks, with a caret where the agent is. Instead of sentences that sum up what the agent did, the person watches it try, fail and succeed in place.
+
+```
+✧ Build a users API with auth and a React list
+┌─ ◫ frontend ───────────┐ ┌─ ⇄ backend ────────────┐ ┌─ ▤ database ───────────┐
+│ ◫ UserList             │ │ ⇄ GET /users           │ │ ▦ users                │
+│ ▭ /users               │ │ ⇄ POST /users          │ │ ▦ orders               │
+│ ◐ globals              │ │ ◇ logger               │ │ ▥ add_users            │
+│                        │ │ ◘ requireAuth          │ │                        │
+│                        │ │ ◉ jw▌                  │ │                        │
+└────────────────────────┘ └────────────────────────┘ └────────────────────────┘
+✓ tests  ✗ npm test  11 passed, 1 failed  ▓▓▓▓▓▓▓▓▓░  □ users API
+● git  ● feat: users API  ↑ feat/users
+⊞ also  ⊞ express, zod  ▣ Dockerfile  ▬ README
+```
+
+- **Zones** are boxes that fill with what is built, newest last: `frontend` (components, pages, styles, hooks, assets), `backend` (the api and auth scenes), `database` (tables, migrations, seeds, indexes, queries) and `code` (other files). A zone is drawn once it holds something or the agent is in it. Boxes share the width (one to four columns, at least 20 cells each, wrapping to a second row); items beyond the room are counted in the title (`frontend +4`) and the newest stay visible.
+- **Strips** are single lines for what has no room to grow: `tests` (the last run with its counts and a pass bar, then the tests written), `git` (commits, branches, pushes, PRs) and `also` (deps, infra, config, build, docs, agents). A run in progress shows a spinner, a failed one a red cross.
+- **The task line** at the top is the prompt of the turn; the caret sits there while the agent thinks, and `waiting for the agent` shows before the first prompt.
+- **The cursor** is a caret (`▌`) after the item the agent is working on, blinking in the terminal. It moves with every major event: to the database when a table lands, to the flask while the tests run, to the git strip when it commits. A run in progress that has no object yet (a migration, a server, a query) is a transient line in its zone with the spinner.
+- **Type-in**: an item that landed less than 600 ms ago is drawn letter by letter from its timestamp, so in a live terminal names type themselves in at the moment the hook wrote them.
+- **Failures** stay in place: a failed object is a ghost line in red with `✗`, replaced when the retry succeeds; a failed run colors its strip red with its counts and goes green on the next pass.
+
+Text in `lib/blueprint.mjs` (pure; lines of toned segments the renderer paints, exact width, bounded height, ASCII twin), vector in `lib/svg.mjs` (`blueprint`). The blueprint is the default view of the watcher, the demo, the snapshot and the window; the action pictogram remains as the `action` view (`v` in the watcher, `--view action`, `/motiondev view action`). The one-line band above the prompt is unchanged.
+
 ### Window and band (Claude Code mod)
 
-The window is an engine pane (`$.ui.open`), opened at session start (placed there only on a wide terminal or once a client attaches) and again with each prompt the person enters, which counts as asked and is placed at any width, until the person closes it; `/motiondev` reopens it. It draws `lib/svg.mjs` on remote surfaces and `lib/compose.mjs` on the terminal: the action on the object inside its zone (the table card entering the database with its columns, the request leaving the server), chosen by a judged design panel over three SVG and two text styles.
+The window is an engine pane (`$.ui.open`), opened at session start (placed there only on a wide terminal or once a client attaches) and again with each prompt the person enters, which counts as asked and is placed at any width, until the person closes it; `/motiondev` reopens it. It draws the blueprint (above) by default: `lib/svg.mjs` on remote surfaces, `lib/blueprint.mjs` on the terminal. In the `action` view it draws the action on the object inside its zone instead (the table card entering the database with its columns, the request leaving the server), `lib/svg.mjs` `illustrate` on remote surfaces and `lib/compose.mjs` on the terminal, chosen by a judged design panel over three SVG and two text styles.
 
 ### Band (Claude Code mod)
 

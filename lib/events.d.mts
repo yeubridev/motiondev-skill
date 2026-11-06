@@ -12,13 +12,16 @@ export type Event = {
   detail?: string
   session?: string
 }
-export type Built = { key: string; scene: string; object: string; name: string; detail: string; ts: number }
+export type Built = { key: string; scene: string; object: string; name: string; detail: string; status: 'done' | 'fail'; ts: number }
+export type Run = { scene: string; object: string; name: string; status: string; detail: string; ts: number }
 export type Current = { scene: string; object: string; name: string; status: string; detail: string; file: string; ts: number }
 export type Canvas = {
   project: string
   session: string
+  task: string
   current: Current
   shelf: Built[]
+  runs: Record<string, Run>
   ticker: Event[]
   running: boolean
   turns: number
