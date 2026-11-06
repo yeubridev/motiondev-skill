@@ -5,7 +5,7 @@ description: Use when the user wants to see what the agent is building as it hap
 
 # motiondev
 
-motiondev draws what you build while you build it, in a window inside the chat: a database cylinder when you touch the schema, a table card with the table's columns, a server box with the `GET /users` arrow, a bubbling flask with the test counts. The window, the band above the prompt and the hooks that feed them live in the motiondev **plugin**. This skill alone draws nothing: step 1 makes sure the plugin is there.
+motiondev draws what you build while you build it, in a window inside the chat: the blueprint of the build, with a frontend box, a backend box and a database box that fill with what you make, a caret where you are, a red ghost where a write failed until you retry it, and a tests strip that goes red and then green with the counts. The window, the band above the prompt and the hooks that feed them live in the motiondev **plugin**. This skill alone draws nothing: step 1 makes sure the plugin is there.
 
 ## 1. Make sure the plugin is installed, then hand the person the window
 

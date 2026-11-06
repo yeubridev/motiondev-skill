@@ -1,6 +1,7 @@
 // The band's state contract. Self-contained on purpose: the engine reads it without resolving imports.
 // It mirrors Canvas in lib/events.d.mts; change both together and bump the atom's shape tag.
-export type Built = { key: string; scene: string; object: string; name: string; detail: string; ts: number }
+export type Built = { key: string; scene: string; object: string; name: string; detail: string; status: 'done' | 'fail'; ts: number }
+export type Run = { scene: string; object: string; name: string; status: string; detail: string; ts: number }
 export type Current = { scene: string; object: string; name: string; status: string; detail: string; file: string; ts: number }
 export type Event = {
   ts: number
@@ -19,8 +20,10 @@ export type Event = {
 export type Canvas = {
   project: string
   session: string
+  task: string
   current: Current
   shelf: Built[]
+  runs: Record<string, Run>
   ticker: Event[]
   running: boolean
   turns: number
@@ -30,6 +33,6 @@ export type Canvas = {
 
 declare module 'claude-code' {
   interface PluginState {
-    motiondev: { canvas: Shaped<Canvas>; isHidden: boolean; isClosed: boolean; details: boolean }
+    motiondev: { canvas: Shaped<Canvas>; isHidden: boolean; isClosed: boolean; details: boolean; view: string }
   }
 }

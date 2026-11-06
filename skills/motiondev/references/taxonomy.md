@@ -26,4 +26,4 @@ Minor scenes (explore, shell) feed the ticker and never move the main pictogram.
 
 ## Status
 
-`--status start` opens a run (the pictogram animates), `done` closes it, `fail` closes it in red. Objects with a status of `fail` do not join the shelf.
+`--status start` opens a run (the pictogram animates), `done` closes it, `fail` closes it in red. An object with a status of `fail` joins the shelf as a ghost (a red `✗` in its place on the blueprint) until an emit with the same scene, object and name succeeds; that retry takes the ghost's place.

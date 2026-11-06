@@ -13,18 +13,36 @@ const build = () => {
   return s
 }
 
-test('a frame is exactly the box it was asked for, in color and without', () => {
+test('a frame is exactly the box it was asked for, in color and without, in both views', () => {
   const s = build()
-  for (const color of [false, true]) {
-    const lines = frame(s, { width: 80, height: 24, tick: 3, now: 5200, color })
-    assert.equal(lines.length, 24)
-    for (const line of lines) assert.equal(visibleWidth(line), 80, `"${stripAnsi(line)}" is ${visibleWidth(line)} wide`)
-    if (!color) for (const line of lines) assert.equal(line, stripAnsi(line), 'no escape codes when color is off')
+  for (const view of ['blueprint', 'action']) {
+    for (const color of [false, true]) {
+      const lines = frame(s, { width: 80, height: 24, tick: 3, now: 5200, color, view })
+      assert.equal(lines.length, 24)
+      for (const line of lines) assert.equal(visibleWidth(line), 80, `${view}: "${stripAnsi(line)}" is ${visibleWidth(line)} wide`)
+      if (!color) for (const line of lines) assert.equal(line, stripAnsi(line), 'no escape codes when color is off')
+    }
   }
 })
 
-test('a frame shows the scene, what is being made, the shelf and the ticker', () => {
-  const text = frame(build(), { width: 80, height: 24, tick: 0, now: 5200 }).join('\n')
+test('the blueprint is the default view: the build in its zones, the caret where the agent is, the ticker under it', () => {
+  const s = build()
+  const text = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  assert.match(text, /shop-api/)
+  assert.match(text, /✧ Add users table and GET \/users/)
+  assert.match(text, /┌─ ⇄ backend .*┌─ ▤ database/)
+  assert.match(text, /│ ⇄ GET \/users\s+│ │ ▦ users\s+│/)
+  assert.match(text, /✓ tests .*npm test .*running▌/)
+  assert.match(text, /src\/db\.ts/, 'the ticker is still there')
+  assert.doesNotMatch(text, /quality · tests/, 'no caption in the blueprint view')
+  const colored = frame(s, { width: 80, height: 24, tick: 0, now: 9000, color: true }).join('\n')
+  assert.match(colored, /\x1b\[38;5;114m/, 'the tests strip is painted in its scene color')
+  const failed = reduce(s, makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'fail', detail: '11 passed, 1 failed' }, 6000))
+  assert.match(frame(failed, { width: 80, height: 24, tick: 0, now: 9000, color: true }).join('\n'), /\x1b\[38;5;203m  ✗ 11 passed, 1 failed/, 'a failure is red')
+})
+
+test('the action view shows the scene, what is being made, the shelf and the ticker', () => {
+  const text = frame(build(), { width: 80, height: 24, tick: 0, now: 5200, view: 'action' }).join('\n')
   assert.match(text, /shop-api/)
   assert.match(text, /quality · tests/)
   assert.match(text, /npm test/)
@@ -34,30 +52,40 @@ test('a frame shows the scene, what is being made, the shelf and the ticker', ()
   assert.match(text, /src\/db\.ts/)
 })
 
-test('a narrow or short terminal still gets a full box', () => {
-  for (const [width, height] of [[40, 10], [30, 6], [120, 40], [20, 4]]) {
-    const lines = frame(build(), { width, height, tick: 1, now: 5200 })
-    assert.equal(lines.length, height)
-    for (const line of lines) assert.equal(visibleWidth(line), width, `${width}x${height}: "${line}"`)
+test('a narrow or short terminal still gets a full box, in both views', () => {
+  for (const view of ['blueprint', 'action']) {
+    for (const [width, height] of [[40, 10], [30, 6], [120, 40], [20, 4], [24, 3]]) {
+      const lines = frame(build(), { width, height, tick: 1, now: 5200, view })
+      assert.equal(lines.length, height)
+      for (const line of lines) assert.equal(visibleWidth(line), width, `${view} ${width}x${height}: "${line}"`)
+    }
   }
 })
 
 test('a scene change reveals the pictogram over time and animation follows the tick', () => {
   const s = build()
-  const early = frame(s, { width: 80, height: 24, tick: 0, now: 5050 }).join('\n')
-  const late = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  const early = frame(s, { width: 80, height: 24, tick: 0, now: 5050, view: 'action' }).join('\n')
+  const late = frame(s, { width: 80, height: 24, tick: 0, now: 9000, view: 'action' }).join('\n')
   assert.notEqual(early, late, 'the reveal changes the drawing')
-  const a = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
-  const b = frame(s, { width: 80, height: 24, tick: 1, now: 9000 }).join('\n')
+  const a = frame(s, { width: 80, height: 24, tick: 0, now: 9000, view: 'action' }).join('\n')
+  const b = frame(s, { width: 80, height: 24, tick: 1, now: 9000, view: 'action' }).join('\n')
   assert.notEqual(a, b, 'a running scene animates between ticks')
+  const on = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  const off = frame(s, { width: 80, height: 24, tick: 6, now: 9000 }).join('\n')
+  assert.match(on, /running▌/)
+  assert.doesNotMatch(off, /▌/, 'the caret blinks on the blueprint')
+  assert.notEqual(on, off)
+  const typing = frame(s, { width: 80, height: 24, tick: 6, now: 5100 }).join('\n')
+  assert.match(typing, /✓ tests  ▶ np▌/, 'a fresh run types its name in, the caret on while it types')
 })
 
 test('reveal can be turned off for a one-shot frame, and a done run reads in the past tense', () => {
   const s = build()
-  const text = frame(s, { width: 80, height: 24, tick: 0, now: 5050, reveal: false }).join('\n')
+  const text = frame(s, { width: 80, height: 24, tick: 0, now: 5050, reveal: false, view: 'action' }).join('\n')
   assert.match(text, /┌─ ▶ run/, 'the whole drawing is there, card included')
+  assert.match(frame(s, { width: 80, height: 24, tick: 0, now: 5050, reveal: false }).join('\n'), /▶ npm test  [◐◓◑◒] running▌/, 'no type-in on a one-shot blueprint')
   let d = reduce(s, makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'npm test', status: 'done', detail: '12 passed' }, 6000))
-  const done = frame(d, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  const done = frame(d, { width: 80, height: 24, tick: 0, now: 9000, view: 'action' }).join('\n')
   assert.match(done, /✓ ran tests · done/)
   assert.match(done, /12 passed/)
 })
@@ -65,7 +93,7 @@ test('reveal can be turned off for a one-shot frame, and a done run reads in the
 test('the caption and the table card keep the columns after the turn ends', () => {
   let s = reduce(initialState(), makeEvent({ kind: 'object', scene: 'database', object: 'table', name: 'users', detail: 'id, email, password_hash', file: 'db/schema.sql', status: 'done' }, 1000))
   s = reduce(s, makeEvent({ kind: 'turn', scene: 'idle', status: 'done', weight: 'minor' }, 2000))
-  const text = frame(s, { width: 80, height: 24, tick: 0, now: 9000 }).join('\n')
+  const text = frame(s, { width: 80, height: 24, tick: 0, now: 9000, view: 'action' }).join('\n')
   assert.match(text, /id, email, password_hash/, 'caption keeps the detail')
   assert.match(text, /db\/schema\.sql/, 'caption keeps the file')
   assert.match(text, /│ id\s+│/, 'the card lists the real columns')
@@ -94,4 +122,12 @@ test('tickerLine is one row per event with a clock, a glyph and the gist', () =>
   assert.ok(visibleWidth(line) <= 80)
   const fail = tickerLine(makeEvent({ kind: 'run', scene: 'tests', object: 'run', name: 'pytest', status: 'fail', detail: '2 failed' }, 0), { width: 60, utc: true })
   assert.match(fail, /2 failed/)
+})
+
+test('the action view marks a failed object on the shelf until the retry lands', () => {
+  let s = reduce(initialState(), makeEvent({ kind: 'object', scene: 'frontend', object: 'component', name: 'UserList', status: 'fail' }, 1000))
+  const ghost = frame(s, { width: 80, height: 24, tick: 0, now: 9000, view: 'action', color: true }).join('\n')
+  assert.match(ghost, /\x1b\[38;5;203m✗ UserList/)
+  s = reduce(s, makeEvent({ kind: 'object', scene: 'frontend', object: 'component', name: 'UserList', status: 'done' }, 2000))
+  assert.match(frame(s, { width: 80, height: 24, tick: 0, now: 9000, view: 'action' }).join('\n'), /built  ◫ UserList/)
 })
